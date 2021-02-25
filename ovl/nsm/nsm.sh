@@ -72,7 +72,7 @@ cmd_test() {
 			test_$t
 		done
 	else
-		for t in basic4 basic_dual; do
+		for t in basic_nextgen; do
 			test_$t
 		done
 	fi	
@@ -81,90 +81,6 @@ cmd_test() {
 	tlog "Xcluster test ended. Total time $((now-begin)) sec"
 }
 
-test_basic4() {
-	__mode=ipv4
-	basic
-}
-test_basic_dual() {
-	__mode=dual-stack
-	basic
-}
-
-test_bridge_domain_dual() {
-	__mode=dual-stack
-	bridge_domain
-}
-test_bridge_domain_ipv4() {
-	__mode=ipv4
-	bridge_domain
-}
-
-test_start() {
-	export __mem1=2048
-	export __mem=1536
-	test -n "$__mode" || __mode=dual-stack
-	xcluster_prep $__mode
-	xcluster_start nsm
-
-	otc 1 check_namespaces
-	otc 1 check_nodes
-
-	tcase_helm_start
-	otc 2 check_nsm
-}
-
-basic() {
-	tlog "=== NSM; Basic test, mode=$__mode"
-	test_start
-
-	tcase_install_icmp_responder
-	otc 1 check_icmp_responder
-	tcase_nsc_ping_all
-
-	xcluster_stop
-}
-
-bridge_domain() {
-	tlog "=== NSM; Bridge-domain test, mode=$__mode"
-	test_start
-
-	otc 2 bridge_domain_install
-	otc 2 bridge_domain_install_simple_client
-	otc 2 bridge_domain_ping_simple_client
-
-	otc 2 bridge_domain_install_ipv6
-	otc 2 bridge_domain_install_simple_client_ipv6
-	otc 2 bridge_domain_ping_simple_client_ipv6
-
-	xcluster_stop
-}
-
-
-tcase_helm_start() {
-	test -n "$__tag" || __tag=master
-	tcase "Start NSM using helm (tag=$__tag)"
-	kubectl create namespace spire
-	cd $GOPATH/src/github.com/networkservicemesh/networkservicemesh
-	helm install --generate-name --set tag=$__tag \
-		--set spire.enable=false --set insecure=true deployments/helm/nsm || tdie
-}
-
-tcase_install_icmp_responder() {
-	tcase "Install icmp-responder using helm"
-	cd $GOPATH/src/github.com/networkservicemesh/networkservicemesh
-	helm install --generate-name deployments/helm/icmp-responder
-}
-
-nsc_ping_all_ok() {
-	NSM_NAMESPACE=default ./scripts/nsc_ping_all.sh 2>&1 | ogrep ERROR && return 1
-	return 0
-}
-
-tcase_nsc_ping_all() {
-	tcase "nsc_ping_all"
-	cd $GOPATH/src/github.com/networkservicemesh/networkservicemesh
-	tex nsc_ping_all_ok || tdie
-}
 
 test_start_base() {
 	test -n "$TOPOLOGY" || TOPOLOGY=multilan
