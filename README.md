@@ -1,7 +1,7 @@
 # nsm-test
 
 A common place for documentation and code for testing
-[NSM](https://www.networkservicemesh.io/).
+[NSM](https://www.networkservicemesh.io/) next-generation.
 
 ## Xcluster ovls
 
