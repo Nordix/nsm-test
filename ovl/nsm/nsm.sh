@@ -105,7 +105,6 @@ test_start_nextgen() {
 test_basic_nextgen() {
 	test_start_nextgen
 	otc 1 start_nsc_nse
-	test "$__get_logs" = "yes" && get_nsm_logs
 	otc 1 check_interfaces
 	xcluster_stop
 }
@@ -113,7 +112,6 @@ test_basic_nextgen() {
 test_basic_ipv6() {
 	test_start_nextgen
 	otc 1 start_nsc_nse_ipv6
-	test "$__get_logs" = "yes" && get_nsm_logs
 	xcluster_stop
 }
 
@@ -123,13 +121,12 @@ test_ipvlan() {
 	export xcluster_NSM_FORWARDER_CALLOUT=/bin/ipvlan.sh
 	test_start_nextgen
 	otc 1 start_nsc_nse_l2
-	test "$__get_logs" = "yes" && get_nsm_logs
 	otc 1 check_interfaces_ipvlan
 	xcluster_stop
 }
 
 
-get_nsm_logs() {
+cmd_get_logs() {
 	# kubectl get pod nse-58cc4f847-rx9v5 -o json | jq .metadata.labels
 	local dst=/tmp/$USER/nsm-logs
 	rm -rf $dst
@@ -172,15 +169,18 @@ cmd_readlog() {
 	local log="$1"
 	local pods=$(dirname $log)/pods.sed
 	test -r $pods || die "Not readable [$pods]"
-	mkdir -p $tmp
 
-	local pat='request|request-diff|response|response-diff'
-	grep -oE "($pat).*" $log | sed -Ee 's, *span=.*,,' \
-		| sed -Ee "s,($pat)=(.*),{\"\\1\": \\2}," |  jq . | grep -v token \
-		| sed -f $pods
-
+	if grep -qE 'request-diff|response-diff' $log; then
+		# An original NSM log
+		local pat='request|request-diff|response|response-diff'
+		grep -oE "($pat).*" $log | sed -Ee 's, *span=.*,,' \
+			| sed -Ee "s,($pat)=(.*),{\"\\1\": \\2}," |  jq . | grep -v token \
+			| sed -f $pods
+	else
+		# Some *-generic log
+		sed -f $pods < $log
+	fi
 }
-
 
 
 . $($XCLUSTER ovld test)/default/usr/lib/xctest

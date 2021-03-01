@@ -33,10 +33,10 @@ network topology is used.
 
 ```
 log=/tmp/$USER/xcluster.log
-export __get_logs=yes
 xcadmin k8s_test --no-stop nsm basic_nextgen > $log
 # Login and investigate things, e.g. kubectl logs ...
 # Investigate logs;
+./nsm.sh get_logs
 ./nsm.sh readlog /tmp/$USER/nsm-logs/nsmgr-local.log | less
 ```
 
@@ -47,8 +47,10 @@ interfaces are checked and a simple ping nsc->nse is tested.
 
 ```
 log=/tmp/$USER/xcluster.log
-export __get_logs=yes
 xcadmin k8s_test nsm ipvlan > $log
+# Scale
+pods -l app=nsc
+kubectl scale deployment/nsc --replicas=9
 ```
 
 Setup NSM and start NSE and 10xNSC as a deployment with `replicas:
