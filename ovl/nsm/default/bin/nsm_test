@@ -159,6 +159,22 @@ cmd_tcase_check_interfaces_ipvlan() {
 	done
 }
 
+cmd_tcase_check_interfaces_vlan() {
+	tcase "Check VLAN interfaces"
+	mkdir -p $tmp
+	local pod inet
+
+	for pod in $(kubectl get pods -l app=nsc -o name); do
+	    tmp_file=ip-$(basename $pod)
+	    kubectl exec $pod -- ip address show nsm-1 > $tmp/$tmp_file || tdie $pod
+	    inet=$(grep -oE '169\.254\.0\.[0-9]+' $tmp/$tmp_file)
+	    tlog "NSC $pod; nsm-1, $inet"
+	done
+	pod=$(kubectl get pods -l app=nse -o name | head -1)
+	kubectl exec $pod -- ip link show | grep -q nsm && tdie $pod
+	tlog "NSE $pod; no nsm interface created"
+}
+
 . /etc/profile
 test -r /usr/lib/xctest && . /usr/lib/xctest
 indent='  '

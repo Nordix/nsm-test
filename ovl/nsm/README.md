@@ -12,13 +12,13 @@ variables.
 
 
 ```
-# The forwarder to use. Values; vpp|generic. Default; vpp
+# The forwarder to use. Values; vpp|generic|generic-vlan. Default; vpp
 export xcluster_NSM_FORWARDER=generic
 
 # The NSE to use; Values; icmp-responder|generic. Default; icmp-responder
 export xcluster_NSM_NSE=generic
 
-# The callout script if NSM_FORWARDER=generic is used.
+# The callout script if NSM_FORWARDER=generic or NSM_FORWARDER=generic-vlan is used.
 # Values; (varies); Default; /bin/forwarder.sh
 export xcluster_NSM_FORWARDER_CALLOUT=/bin/forwarder.sh
 ```
@@ -57,6 +57,15 @@ Setup NSM and start NSE and 10xNSC as a deployment with `replicas:
 10`. IPVLAN on `eth3` connects all NSC's and the NSE in a fully mesh
 L2 network. Interfaces are checked and ping from the NSE to all 10
 NSC's is tested.
+
+### VLAN test
+```
+log=/tmp/$USER/xcluster.log
+xcadmin k8s_test nsm vlan > $log
+```
+
+Interfaces are checked on NSC and the NSE. On NSE should not be injected any
+interface.
 
 
 ## Load the local registry

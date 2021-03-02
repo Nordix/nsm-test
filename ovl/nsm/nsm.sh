@@ -125,6 +125,15 @@ test_ipvlan() {
 	xcluster_stop
 }
 
+test_vlan() {
+	export xcluster_NSM_FORWARDER=generic-vlan
+	export xcluster_NSM_NSE=generic
+	export xcluster_NSM_FORWARDER_CALLOUT=/bin/vlan-forwarder.sh
+	test_start_nextgen
+	otc 1 start_nsc_nse
+	otc 1 check_interfaces_vlan
+	xcluster_stop
+}
 
 cmd_get_logs() {
 	# kubectl get pod nse-58cc4f847-rx9v5 -o json | jq .metadata.labels
