@@ -59,9 +59,15 @@ L2 network. Interfaces are checked and ping from the NSE to all 10
 NSC's is tested.
 
 ### VLAN test
+
 ```
 log=/tmp/$USER/xcluster.log
 xcadmin k8s_test nsm vlan > $log
+# Scale
+kubectl scale deployment/nsc --replicas=9
+# Check the interfaces and vlanID
+for pod in $(kubectl get pods -l app=nsc -o name); do kubectl exec $pod -- ip address show nsm-1 > ~/tmp_file; inet=$(grep -oE '169\.254\.0\.[0-9]+' ~/tmp_file); echo "NSC $pod; nsm-1, $inet"; rm ~/tmp_file; done
+for pod in $(kubectl get pods -l app=nsc -o name); do echo "NSC $pod"; kubectl exec $pod -- tail -1 /proc/net/vlan/config; done
 ```
 
 Interfaces are checked on NSC and the NSE. On NSE should not be injected any
