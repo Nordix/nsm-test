@@ -29,6 +29,11 @@ Secondary networks are supposed to be used so the
 [multilan](https://github.com/Nordix/xcluster/tree/master/ovl/network-topology#multilan)
 network topology is used.
 
+Always run a regression test before push;
+```
+xcadmin k8s_test nsm > $log
+```
+
 ### Basic test
 
 ```

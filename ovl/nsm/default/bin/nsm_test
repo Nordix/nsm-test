@@ -111,19 +111,20 @@ cmd_tcase_check_interfaces() {
 	local pod iface inet
 
 	pod=$(get_pod app=nsc)
-	$kubectl exec $pod -- ifconfig | grep -B1 169.254. > $tmp/nsc || tdie NSC
+	tex kubectl exec $pod -- ifconfig | grep -B1 169.254. > $tmp/nsc || tdie NSC
 	iface=$(head -1 $tmp/nsc | cut -d ' ' -f1)
 	inet=$(grep -oE '169\.254\.0\.[0-9]+' $tmp/nsc)
 	tlog "NSC; $iface, $inet"
 
 	pod=$(get_pod app=nse)
-	$kubectl exec $pod -- ifconfig | grep -B1 169.254. > $tmp/nse || tdie NSE
+	tex kubectl exec $pod -- ifconfig | grep -B1 169.254. > $tmp/nse || tdie NSE
 	iface=$(head -1 $tmp/nse | cut -d ' ' -f1)
 	inet=$(grep -oE '169\.254\.0\.[0-9]+' $tmp/nse)
 	tlog "NSE; $iface, $inet"
 
-	tlog "Ping $inet from NSC"
-	kubectl_exec app=nsc ping -c1 -W1 $inet || tdie "Ping nsc->nse"
+	pod=$(get_pod app=nsc)
+	tlog "Ping $inet from NSC ($pod)"
+	kubectl exec $pod -- ping -c1 -W1 $inet || tdie "Ping nsc->nse"
 }
 
 cmd_tcase_start_nsc_nse_ipv6() {
@@ -150,7 +151,7 @@ cmd_tcase_check_interfaces_ipvlan() {
 	tcase "Check IPVLAN interfaces"
 	local pod
 	for pod in $(kubectl get pods -l app=nsc -o name); do
-		kubectl exec $pod -- ip link show nsm-1 || tdie $pod
+		tex kubectl exec $pod -- ip link show nsm-1 || tdie $pod
 	done
 	pod=$(kubectl get pods -l app=nse -o name | head -1)
 	local i
@@ -166,7 +167,7 @@ cmd_tcase_check_interfaces_vlan() {
 
 	for pod in $(kubectl get pods -l app=nsc -o name); do
 	    tmp_file=ip-$(basename $pod)
-	    kubectl exec $pod -- ip address show nsm-1 > $tmp/$tmp_file || tdie $pod
+	    tex kubectl exec $pod -- ip address show nsm-1 > $tmp/$tmp_file || tdie $pod
 	    inet=$(grep -oE '169\.254\.0\.[0-9]+' $tmp/$tmp_file)
 	    tlog "NSC $pod; nsm-1, $inet"
 	done

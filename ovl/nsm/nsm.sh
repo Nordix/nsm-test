@@ -72,9 +72,14 @@ cmd_test() {
 			test_$t
 		done
 	else
-		for t in basic_nextgen; do
-			test_$t
-		done
+		export xcluster_NSM_FORWARDER=vpp
+		unset xcluster_NSM_NSE
+		test_basic_nextgen
+		export xcluster_NSM_FORWARDER=generic
+		export xcluster_NSM_NSE=generic
+		test_basic_nextgen
+		test_vlan
+		test_ipvlan
 	fi	
 
 	now=$(date +%s)
