@@ -140,6 +140,16 @@ test_vlan() {
 	xcluster_stop
 }
 
+test_ovs() {
+	export xcluster_NSM_FORWARDER=generic
+	export xcluster_NSE_HOST=vm-002
+	export xcluster_NSM_FORWARDER_CALLOUT=/var/lib/networkservicemesh/ovs.sh
+	test_start_nextgen
+	otc 1 start_nsc_nse
+	otc 1 check_interfaces
+	xcluster_stop
+}
+
 cmd_get_logs() {
 	# kubectl get pod nse-58cc4f847-rx9v5 -o json | jq .metadata.labels
 	local dst=/tmp/$USER/nsm-logs

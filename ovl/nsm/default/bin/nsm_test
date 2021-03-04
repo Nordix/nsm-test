@@ -98,7 +98,12 @@ cmd_tcase_start_nsm_next_gen() {
 
 cmd_tcase_start_nsc_nse() {
 	test -n "$NSM_NSE" || NSM_NSE=icmp-responder
-	tcase "Start the nsc and nse-$NSM_NSE"
+	if test -n "$NSE_HOST"; then
+		sed -i -e "s,vm-003,$NSE_HOST," $yamld/nse-$NSM_NSE.yaml
+	else
+		NSE_HOST=vm-003
+	fi
+	tcase "Start the nsc and nse-$NSM_NSE on $NSE_HOST"
 	$kubectl apply -f $yamld/nse-$NSM_NSE.yaml
 	test_deployment nse 60
 	$kubectl apply -f $yamld/nsc.yaml
