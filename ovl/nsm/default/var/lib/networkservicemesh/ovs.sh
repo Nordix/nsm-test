@@ -35,8 +35,20 @@ dbg() {
 ##    Print environment.
 ##
 cmd_env() {
-	test "$cmd" = "env" && set | grep -E '^(__.*|ARCHIVE)='
+	test -n "$INTERFACE" || INTERFACE=eth2
+	test "$cmd" = "env" && set | grep -E '^(__.*)='
 	return 0
+}
+
+cmd_ipv4() {
+	ip -json addr show dev $1 | \
+		jq -r '.[]|select(.addr_info)|.addr_info[]|select(.scope == "global")|.local' \
+		| grep -F . | head -1
+}
+cmd_ipv6() {
+	ip -json addr show dev $1 | \
+		jq -r '.[]|select(.addr_info)|.addr_info[]|select(.scope == "global")|.local' \
+		| grep -F : | head -1
 }
 
 ## Callout functions;
@@ -64,6 +76,7 @@ cmd_init() {
 	ovs-ofctl del-flows br-nsm
 }
 cmd_mechanism() {
+	cmd_env
 	cat <<EOF
 [
   {
@@ -74,9 +87,9 @@ cmd_mechanism() {
     "cls": "REMOTE",
     "type": "KERNEL",
     "parameters": {
-      "src_ip": "$POD_IP",
-      "vni": "$(( (RANDOM << 8) + RANDOM % 256 ))",
-      "vlan": "$(( RANDOM % 4093 + 1 ))"
+      "src_ip": "$(cmd_ipv4 $INTERFACE)",
+      "src_ip6": "$(cmd_ipv6 $INTERFACE)",
+      "vni": "$(( (RANDOM << 8) + RANDOM % 256 ))"
     }
   }
 ]

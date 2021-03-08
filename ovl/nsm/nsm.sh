@@ -76,11 +76,19 @@ cmd_test() {
 		unset xcluster_NSM_NSE
 		unset xcluster_INTERFACE
 		test_basic_nextgen
+		export xcluster_NSE_HOST=vm-002
+		test_basic_nextgen
 		export xcluster_NSM_FORWARDER=generic
 		export xcluster_NSM_NSE=generic
+		unset xcluster_NSE_HOST
 		test_basic_nextgen
+		export xcluster_NSE_HOST=vm-002
+		test_basic_nextgen
+		unset xcluster_NSE_HOST
 		test_vlan
 		test_ipvlan
+		export xcluster_NSE_HOST=vm-002
+		test_ovs
 	fi	
 
 	now=$(date +%s)
@@ -110,7 +118,11 @@ test_start_nextgen() {
 	otcw init_interface
 }
 test_basic_nextgen() {
-	tlog "=== nsm; basic"
+	if test "$xcluster_NSE_HOST" = "vm-002"; then
+		tlog "=== nsm; basic LOCAL"
+	else
+		tlog "=== nsm; basic REMOTE"
+	fi
 	test_start_nextgen
 	otc 1 start_nsc_nse
 	otc 1 check_interfaces
@@ -148,9 +160,12 @@ test_vlan() {
 }
 
 test_ovs() {
-	tlog "=== nsm; VLAN"
+	if test "$xcluster_NSE_HOST" = "vm-002"; then
+		tlog "=== nsm; VLAN LOCAL"
+	else
+		tlog "=== nsm; VLAN REMOTE"
+	fi
 	export xcluster_NSM_FORWARDER=generic
-	export xcluster_NSE_HOST=vm-002
 	export xcluster_INTERFACE=eth2
 	export xcluster_NSM_FORWARDER_CALLOUT=/var/lib/networkservicemesh/ovs.sh
 	test_start_nextgen
