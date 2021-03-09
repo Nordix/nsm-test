@@ -140,38 +140,78 @@ cmd_close() {
 # A remote request. We are on the NSC side.
 remote_request_nsc() {
 	echo "Remote request. NSC side"
-	local nsc=nsc$RANDOM
+	local id=$RANDOM
+	local nsc=nsc$id
 	local url=$(cat $json | jq -r .mechanism_preferences[0].parameters.inodeURL)
 	mknetns $nsc $url
 
 	local param=".connection.mechanism.parameters"
-	local raddr=$(cat $json | jq -r $param.dst_ip)
+	local dst=$(cat $json | jq -r $param.dst_ip)
+	local src=$(cmd_ipv4 $INTERFACE)
 	local vni=$(cat $json | jq -r $param.vni)
-	local dev=vni$vni
 
-	ip link add name $dev type geneve id $vni remote $raddr
-	ip link set dev $dev netns $nsc
+	# Create a veth pair. Bring interface "up" and attach one to ovs
+	ip link add dev nsc$id type veth peer name nscPort$id
+	ip link set up dev nsc$id
+	ip link set up dev nscPort$id
+	ovs-vsctl -- --may-exist add-port br-nsm nscPort$id
 
-	nsenter --net=/var/run/netns/$nsc $me ifsetup dst $dev $json
+	# Create a vxlan tunnel in ovc
+	local tunnel="tnl-$(echo $src | tr '.:' '__')"
+	ovs-vsctl -- --may-exist add-port br-nsm $tunnel \
+		-- set interface $tunnel type=vxlan options:local_ip=$src \
+		options:remote_ip=$dst options:key=flow
+
+	# Add flows
+	local nscPort=$(ovs-vsctl --if-exists get interface nscPort$id ofport)
+	local tunnelPort=$(ovs-vsctl --if-exists get interface $tunnel ofport)
+	ovs-ofctl add-flow br-nsm \
+		"priority=100,in_port=$nscPort,actions=set_field:$vni->tun_id,output:$tunnelPort"
+	ovs-ofctl add-flow br-nsm \
+		priority=100,in_port=$tunnelPort,tun_id=$vni,actions=output:$nscPort
+
+	# Inject interface and clean-up
+	ip link set dev nsc$id netns $nsc
+	nsenter --net=/var/run/netns/$nsc $me ifsetup dst nsc$id $json
 	rm -f /var/run/netns/$nsc
 }
 
 # A remote request. We are on the NSE side
 remote_request_nse() {
 	echo "Remote request. NSE side"
-	local nse=nse$RANDOM
+	local id=$RANDOM
+	local nse=nse$id
 	local url=$(cat $json | jq -r .connection.mechanism.parameters.inodeURL)
 	mknetns $nse $url
 
 	local param=".mechanism_preferences[0].parameters"
-	local raddr=$(cat $json | jq -r $param.src_ip)
+	local dst=$(cat $json | jq -r $param.src_ip)
+	local src=$(cmd_ipv4 $INTERFACE)
 	local vni=$(cat $json | jq -r $param.vni)
-	local dev=vni$vni
 
-	ip link add name $dev type geneve id $vni remote $raddr
-	ip link set dev $dev netns $nse
+	# Create a veth pair. Bring interface "up" and attach one to ovs
+	ip link add dev nse$id type veth peer name nsePort$id
+	ip link set up dev nse$id
+	ip link set up dev nsePort$id
+	ovs-vsctl -- --may-exist add-port br-nsm nsePort$id
 
-	nsenter --net=/var/run/netns/$nse $me ifsetup src $dev $json
+	# Create a vxlan tunnel in ovc
+	local tunnel="tnl-$(echo $src | tr '.:' '__')"
+	ovs-vsctl -- --may-exist add-port br-nsm $tunnel \
+		-- set interface $tunnel type=vxlan options:local_ip=$src \
+		options:remote_ip=$dst options:key=flow
+
+	# Add flows
+	local nsePort=$(ovs-vsctl --if-exists get interface nsePort$id ofport)
+	local tunnelPort=$(ovs-vsctl --if-exists get interface $tunnel ofport)
+	ovs-ofctl add-flow br-nsm \
+		"priority=100,in_port=$nsePort,actions=set_field:$vni->tun_id,output:$tunnelPort"
+	ovs-ofctl add-flow br-nsm \
+		priority=100,in_port=$tunnelPort,tun_id=$vni,actions=output:$nsePort
+
+	# Inject interface and clean-up	
+	ip link set dev nse$id netns $nse
+	nsenter --net=/var/run/netns/$nse $me ifsetup src nse$id $json
 	rm -f /var/run/netns/$nse
 }
 

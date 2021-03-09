@@ -87,6 +87,7 @@ cmd_test() {
 		unset xcluster_NSE_HOST
 		test_vlan
 		test_ipvlan
+		test_ovs
 		export xcluster_NSE_HOST=vm-002
 		test_ovs
 	fi	
@@ -161,9 +162,9 @@ test_vlan() {
 
 test_ovs() {
 	if test "$xcluster_NSE_HOST" = "vm-002"; then
-		tlog "=== nsm; VLAN LOCAL"
+		tlog "=== nsm; OVS LOCAL"
 	else
-		tlog "=== nsm; VLAN REMOTE"
+		tlog "=== nsm; OVS REMOTE"
 	fi
 	export xcluster_NSM_FORWARDER=generic
 	export xcluster_INTERFACE=eth2
