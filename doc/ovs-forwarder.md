@@ -38,6 +38,12 @@ This is the case where both PODs are on the same node.
 
 <img src="ovs-1gen-local.svg" alt="1st gen local connection" width="40%" />
 
+### Remote connection
+
+This is the case where PODs are on different nodes.
+
+<img src="ovs-1gen-remote.svg" alt="1st gen local connection" width="50%" />
+
 
 ## The ovs-forwarder next-gen prototype
 
@@ -55,4 +61,4 @@ xcadmin k8s_test nsm ovs > $log
 The ovs is setup in the `init` callout. The `configure-ovs.sh` script
 from the 1st gen ovs-forwarder is used without modifications.
 
-So far only local connection is implemented.
+

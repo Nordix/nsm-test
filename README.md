@@ -6,11 +6,12 @@ A common place for documentation and code for testing
 ## Doc
 
 * [Build nsm components locally](doc/localbuild.md)
+* [OVS based forwarder for NSM next-gen](doc/ovs-forwarder.md)
 
 ## Xcluster ovls
 
 Overlays for test with [xcluster](https://github.com/Nordix/xcluster)
-are found in the [./ovl](ovl) directory.
+are found in the [ovl](ovl) directory.
 
 Extend your $XCLUSTER_OVLPATH;
 ```bash
