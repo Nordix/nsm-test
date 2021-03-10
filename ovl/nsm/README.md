@@ -38,7 +38,7 @@ xcadmin k8s_test nsm > $log
 
 ```
 log=/tmp/$USER/xcluster.log
-xcadmin k8s_test --no-stop nsm basic_nextgen > $log
+xcadmin k8s_test --no-stop nsm basic > $log
 # Login and investigate things, e.g. kubectl logs ...
 # Investigate logs;
 ./nsm.sh get_logs

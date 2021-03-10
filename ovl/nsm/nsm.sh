@@ -75,15 +75,15 @@ cmd_test() {
 		export xcluster_NSM_FORWARDER=vpp
 		unset xcluster_NSM_NSE
 		unset xcluster_INTERFACE
-		test_basic_nextgen
+		test_basic
 		export xcluster_NSE_HOST=vm-002
-		test_basic_nextgen
+		test_basic
 		export xcluster_NSM_FORWARDER=generic
 		export xcluster_NSM_NSE=generic
 		unset xcluster_NSE_HOST
-		test_basic_nextgen
+		test_basic
 		export xcluster_NSE_HOST=vm-002
-		test_basic_nextgen
+		test_basic
 		unset xcluster_NSE_HOST
 		test_vlan
 		test_ipvlan
@@ -114,17 +114,25 @@ test_start_base() {
 	otc 1 start_spire
 }
 test_start_nextgen() {
+	test_start
+	log "OBSOLETE; start_nextgen. Use; start"
+}
+test_start() {
 	test_start_base
 	otc 1 start_nsm_next_gen
 	otcw init_interface
 }
 test_basic_nextgen() {
+	test_basic
+	log "OBSOLETE; basic_nextgen. Use; basic"
+}
+test_basic() {
 	if test "$xcluster_NSE_HOST" = "vm-002"; then
 		tlog "=== nsm; basic LOCAL"
 	else
 		tlog "=== nsm; basic REMOTE"
 	fi
-	test_start_nextgen
+	test_start
 	otc 1 start_nsc_nse
 	otc 1 check_interfaces
 	xcluster_stop
@@ -132,7 +140,7 @@ test_basic_nextgen() {
 
 test_basic_ipv6() {
 	tlog "=== nsm; basic IPv6"
-	test_start_nextgen
+	test_start
 	otc 1 start_nsc_nse_ipv6
 	xcluster_stop
 }
@@ -143,7 +151,7 @@ test_ipvlan() {
 	export xcluster_NSM_NSE=generic
 	export xcluster_INTERFACE=eth2
 	export xcluster_NSM_FORWARDER_CALLOUT=/bin/ipvlan.sh
-	test_start_nextgen
+	test_start
 	otc 1 start_nsc_nse_l2
 	otc 1 check_interfaces_ipvlan
 	xcluster_stop
@@ -154,7 +162,7 @@ test_vlan() {
 	export xcluster_NSM_FORWARDER=generic-vlan
 	export xcluster_NSM_NSE=generic
 	export xcluster_NSM_FORWARDER_CALLOUT=/bin/vlan-forwarder.sh
-	test_start_nextgen
+	test_start
 	otc 1 start_nsc_nse
 	otc 1 check_interfaces_vlan
 	xcluster_stop
@@ -169,7 +177,7 @@ test_ovs() {
 	export xcluster_NSM_FORWARDER=generic
 	export xcluster_INTERFACE=eth2
 	export xcluster_NSM_FORWARDER_CALLOUT=/var/lib/networkservicemesh/ovs.sh
-	test_start_nextgen
+	test_start
 	otc 1 start_nsc_nse
 	otc 1 check_interfaces
 	xcluster_stop
