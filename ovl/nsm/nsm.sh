@@ -156,6 +156,14 @@ test_ipvlan() {
 	otc 1 check_interfaces_ipvlan
 	xcluster_stop
 }
+test_kernel() {
+        export xcluster_NSM_FORWARDER=kernel
+	export xcluster_NSM_NSE=generic
+	test_start_nextgen
+	otc 1 start_nsc_nse
+	otc 1 check_interfaces_vlan
+	xcluster_stop
+}
 
 test_vlan() {
 	tlog "=== nsm; VLAN"

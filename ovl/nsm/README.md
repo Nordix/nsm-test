@@ -12,7 +12,7 @@ variables.
 
 
 ```
-# The forwarder to use. Values; vpp|generic|generic-vlan. Default; vpp
+# The forwarder to use. Values; vpp|generic|generic-vlan|kernel. Default; vpp
 export xcluster_NSM_FORWARDER=generic
 
 # The NSE to use; Values; icmp-responder|generic. Default; icmp-responder
@@ -65,18 +65,29 @@ NSC's is tested.
 
 ### VLAN test
 
+Setup NSM and start a NSC on vm-002 and a NSE on vm-003. Interfaces are checked
+on NSC and the NSE. On NSE should not be injected any interface.
+
+#### Using generic forwarder;
+
 ```
 log=/tmp/$USER/xcluster.log
 xcadmin k8s_test nsm vlan > $log
-# Scale
-kubectl scale deployment/nsc --replicas=9
-# Check the interfaces and vlanID
+```
+
+#### With kernel forwarder;
+
+```
+log=/tmp/$USER/xcluster.log
+xcadmin k8s_test nsm kernel > $log
+```
+
+#### To check the interfaces and vlanID manually;
+
+```
 for pod in $(kubectl get pods -l app=nsc -o name); do kubectl exec $pod -- ip address show nsm-1 > ~/tmp_file; inet=$(grep -oE '169\.254\.0\.[0-9]+' ~/tmp_file); echo "NSC $pod; nsm-1, $inet"; rm ~/tmp_file; done
 for pod in $(kubectl get pods -l app=nsc -o name); do echo "NSC $pod"; kubectl exec $pod -- tail -1 /proc/net/vlan/config; done
 ```
-
-Interfaces are checked on NSC and the NSE. On NSE should not be injected any
-interface.
 
 
 ## Load the local registry

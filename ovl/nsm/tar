@@ -4,6 +4,7 @@
 
 dir=$(dirname $0); dir=$(readlink -f $dir)
 tmp=/tmp/$USER/xcluster_$$
+
 die() {
 	echo "ERROR: $*" >&2
 	rm -rf $tmp
@@ -49,9 +50,10 @@ d=$GOPATH/src/github.com/networkservicemesh/examples/examples/bridge-domain
 test -d "$d/k8s" && cp -r "$d/k8s" $tmp/etc/kubernetes/bridge-domain
 
 d=$GOPATH/src/github.com/Nordix/nsm-forwarder-generic
-for f in forwarder-generic.yaml forwarder-generic-vlan.yaml; do
+for f in forwarder-generic.yaml forwarder-kernel.yaml forwarder-generic-vlan.yaml; do
 	 test -r $d/$f && cp $d/$f $tmp/etc/kubernetes/nsm-next-gen
 done
+
 
 d=$GOPATH/src/github.com/Nordix/nsm-nse-generic
 f=nse-generic.yaml
@@ -61,3 +63,4 @@ cd $tmp
 tar cf "$1" *
 cd - > /dev/null
 rm -rf $tmp
+
