@@ -16,7 +16,7 @@ spec:
     spec:
       hostNetwork: true
       containers:
-        - image: registry.nordix.org/cloud-native/nsm/cmd-forwarder-vpp:latest
+        - image: registry.nordix.org/cloud-native/nsm/cmd-forwarder-vpp:fwsel0
           imagePullPolicy: IfNotPresent
           name: forwarder-vpp
           securityContext:
@@ -34,6 +34,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: NSM_LABELS
+              value: forwarder:forwarder-vpp
           volumeMounts:
             - name: spire-agent-socket
               mountPath: /run/spire/sockets
