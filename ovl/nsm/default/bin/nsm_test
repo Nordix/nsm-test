@@ -119,12 +119,44 @@ cmd_tcase_start_nsm_next_gen() {
 	test_daemonset forwarder-$NSM_FORWARDER 30
 }
 
+cmd_tcase_start_forwarder_kernel() {
+	NSM_FORWARDER=kernel
+	cmd_tcase_start_forwarder
+}
+
+cmd_tcase_start_forwarder_generic() {
+	NSM_FORWARDER=generic
+	cmd_tcase_start_forwarder
+}
+
+cmd_tcase_start_forwarder() {
+	test -n "$NSM_FORWARDER" || NSM_FORWARDER=vpp
+	tcase "Start Forwarder=$NSM_FORWARDER"
+	if test "$NSM_FORWARDER" = "generic"; then
+		if test -n "$NSM_FORWARDER_CALLOUT"; then
+			tlog "FORWARDER_CALLOUT=$NSM_FORWARDER_CALLOUT"
+			sed -i -e "s,/bin/forwarder.sh,$NSM_FORWARDER_CALLOUT," $yamld/forwarder-generic.yaml
+		fi
+		if test -n "$INTERFACE"; then
+			sed -i -e "s,eth1,$INTERFACE," $yamld/forwarder-generic.yaml
+		else
+			sed -i -e "s,eth1,," $yamld/forwarder-generic.yaml
+		fi
+	fi
+	$kubectl apply -f $yamld/forwarder-$NSM_FORWARDER.yaml
+	test_daemonset forwarder-$NSM_FORWARDER 30
+}
+
 cmd_tcase_start_nsc_nse() {
 	test -n "$NSM_NSE" || NSM_NSE=icmp-responder
 	if test -n "$NSE_HOST"; then
 		sed -i -e "s,vm-003,$NSE_HOST," $yamld/nse-$NSM_NSE.yaml
 	else
 		NSE_HOST=vm-003
+	fi
+	if test -n "$NSM_SELECT_FORWARDER"; then
+		tlog "NSC; prefer forwarder-$NSM_SELECT_FORWARDER"
+		sed -i -e "s,/nsm-1.*,/nsm-1?forwarder=forwarder-$NSM_SELECT_FORWARDER," $yamld/nsc.yaml
 	fi
 	tcase "Start the nsc and nse-$NSM_NSE on $NSE_HOST"
 	$kubectl apply -f $yamld/nse-$NSM_NSE.yaml
@@ -202,6 +234,16 @@ cmd_tcase_check_interfaces_vlan() {
 	pod=$(kubectl get pods -l app=nse -o name | head -1)
 	kubectl exec $pod -- ip link show | grep -q nsm && tdie $pod
 	tlog "NSE $pod; no nsm interface created"
+}
+
+cmd_tcase_check_interfaces_multi() {
+	if test -n "$NSM_SELECT_FORWARDER"; then
+		if test "$NSM_SELECT_FORWARDER" = "kernel"; then
+			cmd_tcase_check_interfaces_vlan
+		else
+			cmd_tcase_check_interfaces
+		fi
+	fi
 }
 
 . /etc/profile

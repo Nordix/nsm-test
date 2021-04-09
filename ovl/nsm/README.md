@@ -21,6 +21,10 @@ export xcluster_NSM_NSE=generic
 # The callout script if NSM_FORWARDER=generic or NSM_FORWARDER=generic-vlan is used.
 # Values; (varies); Default; /bin/forwarder.sh
 export xcluster_NSM_FORWARDER_CALLOUT=/bin/forwarder.sh
+
+# The forwarder preferred by nsc to handle the service request.
+# Values; vpp|generic|kernel. Default; vpp
+export xcluster_NSM_SELECT_FORWARDER=generic
 ```
 
 ## Tests
@@ -140,86 +144,32 @@ By default forwarder manifest files have one label with key `forwarder` and valu
 In case (for whatever reason) NSMgr fails to select a forwarder based on labels, then it will fallback to
 its legacy behaviour, that is it will pick the forwarder who registered the first. 
 
-#### Example
+#### Examples
 
-Change nsc.yaml to apply label(s) for service requests related to `icmp-responder` network service through NSM_NETWORK_SERVICES,
-in order to select vpp forwarder.
-
-```
-NSM_NETWORK_SERVICES - A list of Network Service Requests URLs with inner format 
-    - \[kernel://]nsName\[@domainName]/interfaceName?\[label1=value1\*(&labelN=valueN)]
-    - \[vfio://]nsName\[@domainName]?\[label1=value1\*(&labelN=valueN)]
-        - nsName - a Network service name requested
-        - domainName - an interdomain service name
-        - interfaceName - a kernel interface name, for kernel mechanism
-        - labelN=valueN - pairs of labels will be passed as a part of the request:
-            - sriovToken=service.domain/capability - required label for SR-IOV mechanisms
-```
-
-<details><summary>./nsm-test/ovl/nsm/default/etc/kubernetes/nsm-next-gen/nsc.yaml</summary>  
+Set preferred forwarder (the test modifies the deployed nsc manifest based on this):
 
 ```
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nsc
-  labels:
-    app: nsc
-spec:
-  selector:
-    matchLabels:
-      app: nsc
-  template:
-    metadata:
-      labels:
-        app: nsc
-    spec:
-      nodeSelector:
-        kubernetes.io/hostname: vm-002
-      containers:
-        - name: nsc
-          image: registry.nordix.org/cloud-native/nsm/cmd-nsc:latest
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: SPIFFE_ENDPOINT_SOCKET
-              value: unix:///run/spire/sockets/agent.sock
-            - name: NSM_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: NSM_NETWORK_SERVICES
-              value: kernel://icmp-responder/nsm-1?forwarder=forwarder-vpp
-          volumeMounts:
-            - name: spire-agent-socket
-              mountPath: /run/spire/sockets
-              readOnly: true
-            - name: nsm-socket
-              mountPath: /var/lib/networkservicemesh
-              readOnly: true
-      volumes:
-        - name: spire-agent-socket
-          hostPath:
-            path: /run/spire/sockets
-            type: Directory
-        - name: nsm-socket
-          hostPath:
-            path: /var/lib/networkservicemesh
-            type: DirectoryOrCreate
-
+export xcluster_NSM_SELECT_FORWARDER=generic
 ```
 
-</details>  
-
-Run test:
+Run test starting multiple forwarders (vpp, generic and kernel):
 
 ```
 log=/tmp/$USER/xcluster.log
-~/xcluster$ xcadmin k8s_test --no-stop nsm basic > $log
+xcadmin k8s_test --no-stop nsm multi > $log
+```
 
-```  
+Run test starting vpp forwarder:
+
+```
+export xcluster_NSM_FORWARDER=vpp
+export xcluster_NSM_SELECT_FORWARDER=vpp
+log=/tmp/$USER/xcluster.log
+xcadmin k8s_test --no-stop nsm basic > $log
+```
 
 Notes:  
+- Check NSM_NETWORK_SERVICES label in nsc manifest (e.g. kernel://icmp-responder/nsm-1?forwarder=forwarder-vpp)
 - Based on nsc container's logs the path of the service request can be checked.
 - On the other hand look for `interposeCandidateServer` logs in nsmgr to see if the request matched any forwarders.
 
