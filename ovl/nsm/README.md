@@ -113,4 +113,143 @@ docker build --target=runtime --tag=registry.nordix.org/cloud-native/nsm/$x:late
 images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/$x:latest
 ```
 
+## Data plane (forwarder) selection 
+
+Until upstream introduces support to select a forwarder when running with multiple forwarders, a temporary
+forwarder selection implementation can be used.
+
+Requirements:
+- NSMgr: `registry.nordix.org/cloud-native/nsm/cmd-nsmgr:fwsel0`  
+(Or build locally using a modified nsm sdk: https://github.com/Nordix/nsm-sdk/tree/forwarder-select)
+- Forwarder:
+	- Built to both parse `NSM_LABELS` env variables and send them during registration to nsmgr  
+	(vpp forwarder: `registry.nordix.org/cloud-native/nsm/cmd-forwarder-vpp:fwsel0`)
+	- Modified manifest file using `NSM_LABELS` to identify the forwarder
+- NSC: Modified manifest file using labels either through `NSM_LABELS` or through `NSM_NETWORK_SERVICES` to
+select a forwarder for the service request. (Have to match all labels of a forwarder to be selected.) 
+
+Using an up to date version of nsm-test ensures that proper docker images of nsmgr and forwarder-vpp
+are used (tag: `fwsel0`), while providing tuned nsmgr.yaml and forwarder-vpp.yaml files to support forwarder selection.
+
+Also, an up to date nsm-forwarder-generic repository contains manifest files extended with NSM_LABELS for both
+the generic and kernel forwarders, and the forwarder codes are updated so that they can utilize forwarder selection.
+(The forwarder images have to be built manually, unless they are made available by someone.)
+
+By default forwarder manifest files have one label with key `forwarder` and value `forwarder-[type]` (e.g: forwarder-vpp, forwarder-kernel).
+
+In case (for whatever reason) NSMgr fails to select a forwarder based on labels, then it will fallback to
+its legacy behaviour, that is it will pick the forwarder who registered the first. 
+
+#### Example
+
+Change nsc.yaml to apply label(s) for service requests related to `icmp-responder` network service through NSM_NETWORK_SERVICES,
+in order to select vpp forwarder.
+
+```
+NSM_NETWORK_SERVICES - A list of Network Service Requests URLs with inner format 
+    - \[kernel://]nsName\[@domainName]/interfaceName?\[label1=value1\*(&labelN=valueN)]
+    - \[vfio://]nsName\[@domainName]?\[label1=value1\*(&labelN=valueN)]
+        - nsName - a Network service name requested
+        - domainName - an interdomain service name
+        - interfaceName - a kernel interface name, for kernel mechanism
+        - labelN=valueN - pairs of labels will be passed as a part of the request:
+            - sriovToken=service.domain/capability - required label for SR-IOV mechanisms
+```
+
+<details><summary>./nsm-test/ovl/nsm/default/etc/kubernetes/nsm-next-gen/nsc.yaml</summary>  
+
+```
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nsc
+  labels:
+    app: nsc
+spec:
+  selector:
+    matchLabels:
+      app: nsc
+  template:
+    metadata:
+      labels:
+        app: nsc
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: vm-002
+      containers:
+        - name: nsc
+          image: registry.nordix.org/cloud-native/nsm/cmd-nsc:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SPIFFE_ENDPOINT_SOCKET
+              value: unix:///run/spire/sockets/agent.sock
+            - name: NSM_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NSM_NETWORK_SERVICES
+              value: kernel://icmp-responder/nsm-1?forwarder=forwarder-vpp
+          volumeMounts:
+            - name: spire-agent-socket
+              mountPath: /run/spire/sockets
+              readOnly: true
+            - name: nsm-socket
+              mountPath: /var/lib/networkservicemesh
+              readOnly: true
+      volumes:
+        - name: spire-agent-socket
+          hostPath:
+            path: /run/spire/sockets
+            type: Directory
+        - name: nsm-socket
+          hostPath:
+            path: /var/lib/networkservicemesh
+            type: DirectoryOrCreate
+
+```
+
+</details>  
+
+Run test:
+
+```
+log=/tmp/$USER/xcluster.log
+~/xcluster$ xcadmin k8s_test --no-stop nsm basic > $log
+
+```  
+
+Notes:  
+- Based on nsc container's logs the path of the service request can be checked.
+- On the other hand look for `interposeCandidateServer` logs in nsmgr to see if the request matched any forwarders.
+
+#### Code changes in a forwarder
+
+To support forwarder selection in case of a _new_ forwarder, the following changes have to be implemented
+(if not present).
+
+```go
+type Config struct {
+    Name             string            `default:"forwarder" desc:"Name of Endpoint"`
+    NSName           string            `default:"xconnectns" desc:"Name of Network Service to Register with Registry"`
+    TunnelIP         net.IP            `desc:"IP to use for tunnels" split_words:"true"`
+    ConnectTo        url.URL           `default:"unix:///connect.to.socket" desc:"url to connect to" split_words:"true"`
+    MaxTokenLifetime time.Duration     `default:"24h" desc:"maximum lifetime of tokens" split_words:"true"`
++   Labels           map[string]string `default:"" desc:"Endpoint labels"`
+}
+
+
+    _, err = registryClient.Register(ctx, &registryapi.NetworkServiceEndpoint{
+            Name:                config.Name,
+            NetworkServiceNames: []string{config.NSName},
+            Url:            listenOn.String(),
+            ExpirationTime: expireTime,
++           NetworkServiceLabels: map[string]*registryapi.NetworkServiceLabels{
++               config.NSName: {
++                   Labels: config.Labels,
++               },
++           },
+    })
+
+```
 
