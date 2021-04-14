@@ -88,6 +88,7 @@ cmd_test() {
 		test_vlan
 		test_ipvlan
 		test_ovs
+		test_kernel
 		export xcluster_NSE_HOST=vm-002
 		test_ovs
 	fi	
@@ -159,9 +160,9 @@ test_ipvlan() {
 test_kernel() {
         export xcluster_NSM_FORWARDER=kernel
 	export xcluster_NSM_NSE=generic
-	test_start_nextgen
+	test_start
 	otc 1 start_nsc_nse
-	otc 1 check_interfaces_vlan
+	otc 1 check_interfaces
 	xcluster_stop
 }
 

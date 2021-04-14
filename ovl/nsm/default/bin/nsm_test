@@ -232,7 +232,7 @@ cmd_tcase_check_interfaces_vlan() {
 	    tlog "NSC $pod; nsm-1, $inet"
 	done
 	pod=$(kubectl get pods -l app=nse -o name | head -1)
-	kubectl exec $pod -- ip link show | grep -q nsm && tdie $pod
+	tex kubectl exec $pod -- ip link show | grep -q icmp-respo && tdie $pod
 	tlog "NSE $pod; no nsm interface created"
 }
 
