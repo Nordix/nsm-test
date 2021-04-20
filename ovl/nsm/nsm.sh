@@ -178,14 +178,14 @@ test_vlan() {
 }
 
 test_multi() {
-	test -n "$xcluster_NSM_SELECT_FORWARDER" || export xcluster_NSM_SELECT_FORWARDER=vpp
+	# test -n "$xcluster_NSM_SELECT_FORWARDER" || export xcluster_NSM_SELECT_FORWARDER=vpp
 	export xcluster_NSM_NSE=icmp-responder
 	unset xcluster_NSM_FORWARDER
-	test_start_nextgen
+	test_start
 	otc 1 start_forwarder_kernel
 	otc 1 start_forwarder_generic
 	otc 1 start_nsc_nse
-	otc 1 check_interfaces_multi
+	otc 1 check_interfaces
 	xcluster_stop
 }
 

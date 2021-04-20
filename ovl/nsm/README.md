@@ -23,8 +23,12 @@ export xcluster_NSM_NSE=generic
 export xcluster_NSM_FORWARDER_CALLOUT=/bin/forwarder.sh
 
 # The forwarder preferred by nsc to handle the service request.
-# Values; vpp|generic|kernel. Default; vpp
+# Values; vpp|generic|kernel. Default; not set
 export xcluster_NSM_SELECT_FORWARDER=generic
+
+# The forwarder preferred by nse to handle the service request.
+# Values; vpp|generic|kernel. Default; not set
+export xcluster_NSM_NSE_SELECT_FORWARDER=generic
 ```
 
 ## Tests
@@ -123,17 +127,24 @@ Until upstream introduces support to select a forwarder when running with multip
 forwarder selection implementation can be used.
 
 Requirements:
-- NSMgr: `registry.nordix.org/cloud-native/nsm/cmd-nsmgr:fwsel0`  
-(Or build locally using a modified nsm sdk: https://github.com/Nordix/nsm-sdk/tree/forwarder-select)
+
+- NSMgr:
+	- NSC label based selection: `registry.nordix.org/cloud-native/nsm/cmd-nsmgr:fwsel0`  
+	(Or build locally using a modified nsm sdk: https://github.com/Nordix/nsm-sdk/tree/forwarder-select)
+	- NSC or NSE label based selection (NSC has priority): `registry.nordix.org/cloud-native/nsm/cmd-nsmgr:fwsel1`  
+	(Or build locally using a modified nsm sdk: https://github.com/Nordix/nsm-sdk/tree/nse-forwarder-select)
 - Forwarder:
 	- Built to both parse `NSM_LABELS` env variables and send them during registration to nsmgr  
 	(vpp forwarder: `registry.nordix.org/cloud-native/nsm/cmd-forwarder-vpp:fwsel0`)
 	- Modified manifest file using `NSM_LABELS` to identify the forwarder
 - NSC: Modified manifest file using labels either through `NSM_LABELS` or through `NSM_NETWORK_SERVICES` to
-select a forwarder for the service request. (Have to match all labels of a forwarder to be selected.) 
+select a forwarder for the service request. (Have to match all labels of a forwarder to be selected.)  
+- NSE: Modified manifest file using labels through `NSE_LABELS` to select a forwarder.  
+(Only applicable when using NSMgr alternate where NSE labels are also considered. Takes effect in case no NSC 
+labels are present for the service request.)
 
-Using an up to date version of nsm-test ensures that proper docker images of nsmgr and forwarder-vpp
-are used (tag: `fwsel0`), while providing tuned nsmgr.yaml and forwarder-vpp.yaml files to support forwarder selection.
+Using an up to date version of nsm-test ensures that proper docker images of nsmgr (tag: `fwsel1`) and forwarder-vpp 
+(tag: `fwsel0`) are used, while providing tuned nsmgr.yaml and forwarder-vpp.yaml files to support forwarder selection.
 
 Also, an up to date nsm-forwarder-generic repository contains manifest files extended with NSM_LABELS for both
 the generic and kernel forwarders, and the forwarder codes are updated so that they can utilize forwarder selection.
@@ -142,19 +153,20 @@ the generic and kernel forwarders, and the forwarder codes are updated so that t
 By default forwarder manifest files have one label with key `forwarder` and value `forwarder-[type]` (e.g: forwarder-vpp, forwarder-kernel).
 
 In case (for whatever reason) NSMgr fails to select a forwarder based on labels, then it will fallback to
-its legacy behaviour, that is it will pick the forwarder who registered the first. 
+its legacy behaviour, that is it will pick the forwarder who registered first. 
 
 #### Examples
 
-Set preferred forwarder (the test modifies the deployed nsc manifest based on this):
+Set preferred forwarder in NSC (the test modifies the deployed nsc manifest based on this):
 
 ```
 export xcluster_NSM_SELECT_FORWARDER=generic
 ```
 
-Run test starting multiple forwarders (vpp, generic and kernel):
+Run test starting multiple forwarders (vpp, generic and kernel), and set preference in nsc:
 
 ```
+export xcluster_NSM_SELECT_FORWARDER=generic
 log=/tmp/$USER/xcluster.log
 xcadmin k8s_test --no-stop nsm multi > $log
 ```
@@ -168,8 +180,32 @@ log=/tmp/$USER/xcluster.log
 xcadmin k8s_test --no-stop nsm basic > $log
 ```
 
+Set preferred forwarder only in NSE (the test modifies the deployed nse manifest based on this):
+```
+export xcluster_NSM_NSE_SELECT_FORWARDER=generic
+```
+
+Run test starting multiple forwarders, and set preference in nse:
+
+```
+export xcluster_NSM_NSE_SELECT_FORWARDER=generic
+log=/tmp/$USER/xcluster.log
+xcadmin k8s_test --no-stop nsm multi > $log
+```
+
+Run test starting multiple forwarders, and set preference both in nsc and nse:
+
+```
+export xcluster_NSM_SELECT_FORWARDER=vpp
+# nse labels will be ignored as nsc preference prevails
+export xcluster_NSM_NSE_SELECT_FORWARDER=generic
+log=/tmp/$USER/xcluster.log
+xcadmin k8s_test --no-stop nsm multi > $log
+```
+
 Notes:  
 - Check NSM_NETWORK_SERVICES label in nsc manifest (e.g. kernel://icmp-responder/nsm-1?forwarder=forwarder-vpp)
+- Check NSE_LABELS in nse manifest (e.g. value: forwarder:forwarder-generic)
 - Based on nsc container's logs the path of the service request can be checked.
 - On the other hand look for `interposeCandidateServer` logs in nsmgr to see if the request matched any forwarders.
 

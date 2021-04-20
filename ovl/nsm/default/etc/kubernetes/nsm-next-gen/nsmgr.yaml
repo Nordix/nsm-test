@@ -15,7 +15,7 @@ spec:
         app: nsmgr
     spec:
       containers:
-        - image: registry.nordix.org/cloud-native/nsm/cmd-nsmgr:fwsel0
+        - image: registry.nordix.org/cloud-native/nsm/cmd-nsmgr:fwsel1
           imagePullPolicy: IfNotPresent
           name: nsmgr
           ports:

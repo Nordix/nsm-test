@@ -155,8 +155,22 @@ cmd_tcase_start_nsc_nse() {
 		NSE_HOST=vm-003
 	fi
 	if test -n "$NSM_SELECT_FORWARDER"; then
+		# alter service label in nsc config
 		tlog "NSC; prefer forwarder-$NSM_SELECT_FORWARDER"
 		sed -i -e "s,/nsm-1.*,/nsm-1?forwarder=forwarder-$NSM_SELECT_FORWARDER," $yamld/nsc.yaml
+	fi
+	if test -n "$NSM_NSE_SELECT_FORWARDER"; then
+		# alter config of nse to contain proper NSE_LABELS
+		tlog "NSE; prefer forwarder-$NSM_NSE_SELECT_FORWARDER"
+	        if grep -q NSE_LABELS $yamld/nse-$NSM_NSE.yaml; then
+			tlog "source nse-$NSM_NSE.yaml contains NSE_LABELS"
+			# find line with NSM_LABELS and leave it intact while replacing the "value" part in the next line
+			sed -i -e "/^\( *\)- name: NSE_LABELS/{n;s/value:.*/value: forwarder:forwarder-$NSM_NSE_SELECT_FORWARDER/;}" $yamld/nse-$NSM_NSE.yaml
+		else
+			tlog "no NSE_LABELS in source nse-$NSM_NSE.yaml"
+			# find line with "env:" and leave it intact, then add two new lines to cover NSE_LABELS with valid indentation 
+			sed -i -e "s,^\( *\)env:,&\n\1  - name: NSE_LABELS\n\1    value: forwarder:forwarder-$NSM_NSE_SELECT_FORWARDER," $yamld/nse-$NSM_NSE.yaml
+		fi
 	fi
 	tcase "Start the nsc and nse-$NSM_NSE on $NSE_HOST"
 	$kubectl apply -f $yamld/nse-$NSM_NSE.yaml
@@ -234,16 +248,6 @@ cmd_tcase_check_interfaces_vlan() {
 	pod=$(kubectl get pods -l app=nse -o name | head -1)
 	tex kubectl exec $pod -- ip link show | grep -q icmp-respo && tdie $pod
 	tlog "NSE $pod; no nsm interface created"
-}
-
-cmd_tcase_check_interfaces_multi() {
-	if test -n "$NSM_SELECT_FORWARDER"; then
-		if test "$NSM_SELECT_FORWARDER" = "kernel"; then
-			cmd_tcase_check_interfaces_vlan
-		else
-			cmd_tcase_check_interfaces
-		fi
-	fi
 }
 
 . /etc/profile
