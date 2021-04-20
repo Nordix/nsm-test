@@ -113,6 +113,14 @@ for x in wait-for-it:latest \
 done
 ```
 
+Additional images for kernel forwarder test;
+```
+xtag=vlan-0.1
+for x in forwarder-kernel nse-generic cmd-nsc; do
+images lreg_cache registry.nordix.org/cloud-native/nsm/$x:$xtag
+done
+```
+
 Local built image;
 ```
 x=cmd-nsc
@@ -120,6 +128,8 @@ cd $GOPATH/src/github.com/networkservicemesh/$x
 docker build --target=runtime --tag=registry.nordix.org/cloud-native/nsm/$x:latest .
 images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/$x:latest
 ```
+For building kernel forwarder and required components see [Build nsm components for kernel forwarder using vlan mechanism](../../doc/vlan-forwarder-build.md)
+
 
 ## Data plane (forwarder) selection 
 

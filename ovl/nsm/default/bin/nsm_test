@@ -120,8 +120,9 @@ cmd_tcase_start_nsm_next_gen() {
 }
 
 cmd_tcase_start_forwarder_kernel() {
-	NSM_FORWARDER=kernel
-	cmd_tcase_start_forwarder
+    NSM_FORWARDER=kernel
+    NSM_XTAG=vlan-0.1
+    cmd_tcase_start_forwarder
 }
 
 cmd_tcase_start_forwarder_generic() {
@@ -143,6 +144,9 @@ cmd_tcase_start_forwarder() {
 			sed -i -e "s,eth1,," $yamld/forwarder-generic.yaml
 		fi
 	fi
+	if test -n "$NSM_XTAG"; then
+	    sed -i -e "s,forwarder-kernel:latest,forwarder-kernel:$NSM_XTAG," $yamld/forwarder-$NSM_FORWARDER.yaml
+	fi
 	$kubectl apply -f $yamld/forwarder-$NSM_FORWARDER.yaml
 	test_daemonset forwarder-$NSM_FORWARDER 30
 }
@@ -153,6 +157,10 @@ cmd_tcase_start_nsc_nse() {
 		sed -i -e "s,vm-003,$NSE_HOST," $yamld/nse-$NSM_NSE.yaml
 	else
 		NSE_HOST=vm-003
+	fi
+	if test -n "$NSM_XTAG"; then
+	    sed -i -e "s,nse-generic:latest,nse-generic:$NSM_XTAG," $yamld/nse-generic.yaml
+	    sed -i -e "s,cmd-nsc:latest,cmd-nsc:$NSM_XTAG," $yamld/nsc.yaml
 	fi
 	if test -n "$NSM_SELECT_FORWARDER"; then
 		# alter service label in nsc config

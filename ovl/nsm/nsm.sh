@@ -160,9 +160,10 @@ test_ipvlan() {
 test_kernel() {
         export xcluster_NSM_FORWARDER=kernel
 	export xcluster_NSM_NSE=generic
+	export xcluster_NSM_XTAG=vlan-0.1
 	test_start
 	otc 1 start_nsc_nse
-	otc 1 check_interfaces
+	otc 1 check_interfaces_vlan
 	xcluster_stop
 }
 
