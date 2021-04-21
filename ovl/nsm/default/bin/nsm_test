@@ -158,14 +158,19 @@ cmd_tcase_start_nsc_nse() {
 	else
 		NSE_HOST=vm-003
 	fi
+	local nsc_label="nsm-1"
+	local separator="\?"
 	if test -n "$NSM_XTAG"; then
 	    sed -i -e "s,nse-generic:latest,nse-generic:$NSM_XTAG," $yamld/nse-generic.yaml
 	    sed -i -e "s,cmd-nsc:latest,cmd-nsc:$NSM_XTAG," $yamld/nsc.yaml
+	    sed -i -e "s,kernel://icmp-responder/nsm-1,vlan://icmp-responder/nsm-1?vlan-id=100\&base=eth2," $yamld/nsc.yaml
+	    nsc_label="base=eth2"
+	    separator="\&"
 	fi
 	if test -n "$NSM_SELECT_FORWARDER"; then
 		# alter service label in nsc config
 		tlog "NSC; prefer forwarder-$NSM_SELECT_FORWARDER"
-		sed -i -e "s,/nsm-1.*,/nsm-1?forwarder=forwarder-$NSM_SELECT_FORWARDER," $yamld/nsc.yaml
+		sed -i -e "s,/${nsc_label}.*,/${nsc_label}${separator}forwarder=forwarder-$NSM_SELECT_FORWARDER," $yamld/nsc.yaml
 	fi
 	if test -n "$NSM_NSE_SELECT_FORWARDER"; then
 		# alter config of nse to contain proper NSE_LABELS
