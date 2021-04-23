@@ -178,15 +178,101 @@ test_vlan() {
 	xcluster_stop
 }
 
+test_multi_sel() {
+	unset xcluster_NSM_NO_VLAN_MECH
+	unset xcluster_NSM_SELECT_FORWARDER
+	unset xcluster_NSM_NSE_SELECT_FORWARDER
+	test_multi
+	
+	unset xcluster_NSM_NO_VLAN_MECH
+	export xcluster_NSM_SELECT_FORWARDER=vpp
+	unset xcluster_NSM_NSE_SELECT_FORWARDER
+	test_multi
+	
+	unset xcluster_NSM_NO_VLAN_MECH
+	unset xcluster_NSM_SELECT_FORWARDER
+	export xcluster_NSM_NSE_SELECT_FORWARDER=vpp
+	test_multi
+	
+	unset xcluster_NSM_NO_VLAN_MECH
+	export xcluster_NSM_SELECT_FORWARDER=vpp
+	export xcluster_NSM_NSE_SELECT_FORWARDER=vpp
+	test_multi
+	
+	unset xcluster_NSM_NO_VLAN_MECH
+	export xcluster_NSM_SELECT_FORWARDER=vpp
+	export xcluster_NSM_NSE_SELECT_FORWARDER=kernel
+	test_multi
+	
+	unset xcluster_NSM_NO_VLAN_MECH
+	export xcluster_NSM_SELECT_FORWARDER=kernel
+	unset xcluster_NSM_NSE_SELECT_FORWARDER
+	test_multi
+	
+	unset xcluster_NSM_NO_VLAN_MECH
+	unset xcluster_NSM_SELECT_FORWARDER
+	export xcluster_NSM_NSE_SELECT_FORWARDER=kernel
+	test_multi
+	
+	unset xcluster_NSM_NO_VLAN_MECH
+	export xcluster_NSM_SELECT_FORWARDER=kernel
+	export xcluster_NSM_NSE_SELECT_FORWARDER=kernel
+	test_multi
+	
+	unset xcluster_NSM_NO_VLAN_MECH
+	export xcluster_NSM_SELECT_FORWARDER=kernel
+	export xcluster_NSM_NSE_SELECT_FORWARDER=generic
+	test_multi
+	
+	unset xcluster_NSM_NO_VLAN_MECH
+	export xcluster_NSM_SELECT_FORWARDER=generic
+	unset xcluster_NSM_NSE_SELECT_FORWARDER
+	test_multi
+	
+	unset xcluster_NSM_NO_VLAN_MECH
+	unset xcluster_NSM_SELECT_FORWARDER
+	export xcluster_NSM_NSE_SELECT_FORWARDER=generic
+	test_multi
+	
+	unset xcluster_NSM_NO_VLAN_MECH
+	export xcluster_NSM_SELECT_FORWARDER=generic
+	export xcluster_NSM_NSE_SELECT_FORWARDER=generic
+	test_multi
+	
+	unset xcluster_NSM_NO_VLAN_MECH
+	export xcluster_NSM_SELECT_FORWARDER=generic
+	export xcluster_NSM_NSE_SELECT_FORWARDER=kernel
+	test_multi
+}
+
 test_multi() {
-	# test -n "$xcluster_NSM_SELECT_FORWARDER" || export xcluster_NSM_SELECT_FORWARDER=vpp
-	export xcluster_NSM_NSE=icmp-responder
+	# kernel-forwarder:vlan-0.1 supports vlan through a newly introduced nsm vlan mechanism, while
+	# it does not understand kernel mechanism.
+	# This means that nsc can not blindly stick to the kernel mech by default. Therefore some default
+	# forwarder selection is always set for this test. And in case the preferred forwarder is not set
+	# to kernel-forwarder, nsc is notified not to use vlan mech (via xcluster_NSM_NO_VLAN_MECH).
+	test -n "$xcluster_NSM_SELECT_FORWARDER" -o -n "$xcluster_NSM_NSE_SELECT_FORWARDER" || export xcluster_NSM_SELECT_FORWARDER=vpp
+	
+	if test -n "$xcluster_NSM_SELECT_FORWARDER" -a "$xcluster_NSM_SELECT_FORWARDER" != "kernel" || \
+	test -z "$xcluster_NSM_SELECT_FORWARDER" -a -n "$xcluster_NSM_NSE_SELECT_FORWARDER" -a "$xcluster_NSM_NSE_SELECT_FORWARDER" != "kernel"; then
+		export xcluster_NSM_NO_VLAN_MECH="true"
+	fi
 	unset xcluster_NSM_FORWARDER
+	# vlan mech requires dedicated nsc and nse (they support kernel mech as well)
+	# note: nse-generic registers nsm service with payload=IP, however vpp forwarder
+	# requires payload=ETHERNET. Use icmp-responder until nse-generic is updated...
+	if test -n "$xcluster_NSM_NO_VLAN_MECH" -a "$xcluster_NSM_NO_VLAN_MECH" = "true"; then
+		export xcluster_NSM_NSE=icmp-responder
+		unset xcluster_NSM_XTAG
+	else
+		export xcluster_NSM_NSE=generic
+		export xcluster_NSM_XTAG=vlan-0.1
+	fi
 	test_start
 	otc 1 start_forwarder_kernel
 	otc 1 start_forwarder_generic
 	otc 1 start_nsc_nse
-	otc 1 check_interfaces
+	otc 1 check_interfaces_multi
 	xcluster_stop
 }
 
