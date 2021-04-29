@@ -45,7 +45,7 @@ Now the build can be done using local API and SDK;
 
 ```
 ./build.sh go --forwarder=forwarder-kernel
-./build.sh image --forwarder=forwarder-kernel --tag=registry.nordix.org/cloud-native/nsm/forwarder-kernel:vlan-0.1
+./build.sh image --forwarder=forwarder-kernel --tag=registry.nordix.org/cloud-native/nsm/forwarder-kernel:vlan-0.2
 ```
 
 ## Generic NSE with VLAN Mechanism Support
@@ -71,7 +71,7 @@ Now the build can be done using local API and SDK;
 
 ```
 ./build.sh go
-./build.sh image --tag=registry.nordix.org/cloud-native/nsm/nse-generic:vlan-0.1
+./build.sh image --tag=registry.nordix.org/cloud-native/nsm/nse-generic:vlan-0.2
 ```
 
 ## NSC with VLAN Mechanism Support
@@ -112,12 +112,12 @@ EOF
 ```
 Build the image;
 ```
-docker build --target=runtime --tag=registry.nordix.org/cloud-native/nsm/cmd-nsc:vlan-0.1 -f Dockerfile.local .
+docker build --target=runtime --tag=registry.nordix.org/cloud-native/nsm/cmd-nsc:vlan-0.2 -f Dockerfile.local .
 ```
 
 Upload to the xcluster local registry if needed;
 ```
-xtag=vlan-0.1
+xtag=vlan-0.2
 for x in forwarder-kernel nse-generic cmd-nsc; do
 images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/$x:$xtag
 done

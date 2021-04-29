@@ -158,17 +158,31 @@ test_ipvlan() {
 	xcluster_stop
 }
 test_kernel() {
+        tlog "=== nsm; KERNEL with VLAN"
         export xcluster_NSM_FORWARDER=kernel
-	export xcluster_NSM_NSE=generic
-	export xcluster_NSM_XTAG=vlan-0.1
+	export xcluster_NSM_NSE=generic-vlan
+	export xcluster_NSM_XTAG=vlan-0.2
+	test_start
+	otc 1 start_nsc_nse
+	otc 1 check_interfaces
+	xcluster_stop
+	unset xcluster_NSM_XTAG
+	unset xcluster_NSM_NSE
+}
+test_kernel_oneleg() {
+        tlog "=== nsm; KERNEL with VLAN in NSC only"
+        export xcluster_NSM_FORWARDER=kernel
+	export xcluster_NSM_NSE=generic-vlan-oneleg
+	export xcluster_NSM_XTAG=vlan-0.2
 	test_start
 	otc 1 start_nsc_nse
 	otc 1 check_interfaces_vlan
 	xcluster_stop
+	unset xcluster_NSM_XTAG
+	unset xcluster_NSM_NSE
 }
-
 test_vlan() {
-	tlog "=== nsm; VLAN"
+	tlog "=== nsm; GENERIC VLAN"
 	export xcluster_NSM_FORWARDER=generic-vlan
 	export xcluster_NSM_NSE=generic
 	export xcluster_NSM_FORWARDER_CALLOUT=/bin/vlan-forwarder.sh
@@ -246,7 +260,7 @@ test_multi_sel() {
 }
 
 test_multi() {
-	# kernel-forwarder:vlan-0.1 supports vlan through a newly introduced nsm vlan mechanism, while
+	# kernel-forwarder:vlan-0.2 supports vlan through a newly introduced nsm vlan mechanism, while
 	# it does not understand kernel mechanism.
 	# This means that nsc can not blindly stick to the kernel mech by default. Therefore some default
 	# forwarder selection is always set for this test. And in case the preferred forwarder is not set
@@ -265,14 +279,14 @@ test_multi() {
 		export xcluster_NSM_NSE=icmp-responder
 		unset xcluster_NSM_XTAG
 	else
-		export xcluster_NSM_NSE=generic
-		export xcluster_NSM_XTAG=vlan-0.1
+		export xcluster_NSM_NSE=generic-vlan
+		export xcluster_NSM_XTAG=vlan-0.2
 	fi
 	test_start
 	otc 1 start_forwarder_kernel
 	otc 1 start_forwarder_generic
 	otc 1 start_nsc_nse
-	otc 1 check_interfaces_multi
+	otc 1 check_interfaces
 	xcluster_stop
 }
 

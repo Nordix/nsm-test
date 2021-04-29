@@ -115,7 +115,7 @@ done
 
 Additional images for kernel forwarder test;
 ```
-xtag=vlan-0.1
+xtag=vlan-0.2
 for x in forwarder-kernel nse-generic cmd-nsc; do
 images lreg_cache registry.nordix.org/cloud-native/nsm/$x:$xtag
 done

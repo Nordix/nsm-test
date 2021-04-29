@@ -1,0 +1,5 @@
+	- image: registry.nordix.org/cloud-native/nsm/forwarder-generic:latest
+	- image: registry.nordix.org/cloud-native/nsm/nse-generic:latest
+        - image: registry.nordix.org/cloud-native/nsm/forwarder-kernel:vlan-0.2
+	- image: registry.nordix.org/cloud-native/nsm/nse-generic:vlan-0.2
+	- image: registry.nordix.org/cloud-native/nsm/cmd-nsc:vlan-0.2
