@@ -56,9 +56,8 @@ done
 
 
 d=$GOPATH/src/github.com/Nordix/nsm-nse-generic
-for f in nse-generic.yaml nse-generic-vlan.yaml nse-generic-vlan-oneleg.yaml; do
-    test -r $d/$f && cp $d/$f $tmp/etc/kubernetes/nsm-next-gen
-done
+f=nse-generic.yaml
+test -r $d/$f && cp $d/$f $tmp/etc/kubernetes/nsm-next-gen
 
 cd $tmp
 tar cf "$1" *

@@ -169,8 +169,6 @@ cmd_tcase_start_nsc_nse() {
 	local nsc_label="nsm-1"
 	local separator="\?"
 	if test -n "$NSM_XTAG"; then
-	    tlog "nse-$NSM_NSE using image: nse-generic:$NSM_XTAG"
-	    sed -i -e "s,nse-generic:latest,nse-generic:$NSM_XTAG," $yamld/nse-$NSM_NSE.yaml
 	    tlog "nsc image changed to cmd-nsc:$NSM_XTAG"
 	    sed -i -e "s,cmd-nsc:latest,cmd-nsc:$NSM_XTAG," $yamld/nsc.yaml
 	    if test -z $NSM_NO_VLAN_MECH; then
