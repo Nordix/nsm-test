@@ -1,4 +1,4 @@
-# Build nsm components for kernel forwarder using vlan mechanism
+# Build nsm components for vlan forwarder using vlan mechanism
 
 This description details the steps of building components locally from source using local API and SDK.
 
@@ -30,9 +30,9 @@ replace github.com/networkservicemesh/api => /home/ljkiraly/work/code/src/github
 go build ./...
 ```
 
-## Generic Kernel Forwarder
+## Generic Vlan Forwarder
 
-For building the kernel forwarder also a replace section must be added to go.mod file (`cmd/nsm-forwarder-kernel/go.mod`), example;
+For building the vlan forwarder also a replace section must be added to go.mod file (`cmd/nsm-forwarder-vlan/go.mod`), example;
 
 ```
 replace (
@@ -44,8 +44,8 @@ replace (
 Now the build can be done using local API and SDK;
 
 ```
-./build.sh go --forwarder=forwarder-kernel
-./build.sh image --forwarder=forwarder-kernel --tag=registry.nordix.org/cloud-native/nsm/forwarder-kernel:vlan-0.2
+./build.sh go --forwarder=forwarder-vlan
+./build.sh image --forwarder=forwarder-vlan --tag=registry.nordix.org/cloud-native/nsm/forwarder-vlan:latest
 ```
 
 ## Generic NSE with VLAN Mechanism Support
@@ -112,13 +112,14 @@ EOF
 ```
 Build the image;
 ```
-docker build --target=runtime --tag=registry.nordix.org/cloud-native/nsm/cmd-nsc:vlan-0.2 -f Dockerfile.local .
+docker build --target=runtime --tag=registry.nordix.org/cloud-native/nsm/cmd-nsc:latest -f Dockerfile.local .
 ```
 
 Upload to the xcluster local registry if needed;
 ```
 xtag=vlan-0.2
-for x in forwarder-kernel nse-generic cmd-nsc; do
-images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/$x:$xtag
+images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/nse-generic:$xtag
+for x in forwarder-vlan cmd-nsc; do
+images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/$x:latest
 done
 ```
