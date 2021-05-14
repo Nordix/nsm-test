@@ -80,14 +80,14 @@ on NSC and the NSE. On NSE should not be injected any interface.
 
 ```
 log=/tmp/$USER/xcluster.log
-xcadmin k8s_test nsm vlan > $log
+xcadmin k8s_test nsm vlan_generic > $log
 ```
 
-#### With kernel forwarder;
+#### Vlan forwarder;
 
 ```
 log=/tmp/$USER/xcluster.log
-xcadmin k8s_test nsm kernel > $log
+xcadmin k8s_test nsm vlan > $log
 ```
 
 #### To check the interfaces and vlanID manually;
@@ -113,12 +113,11 @@ for x in wait-for-it:latest \
 done
 ```
 
-Additional images for kernel forwarder test;
+Additional images for vlan forwarder test;
 ```
+images lreg_cache registry.nordix.org/cloud-native/nsm/forwarder-vlan:latest
 xtag=vlan-0.2
-for x in forwarder-kernel nse-generic cmd-nsc; do
-images lreg_cache registry.nordix.org/cloud-native/nsm/$x:$xtag
-done
+images lreg_cache registry.nordix.org/cloud-native/nsm/nse-generic:$xtag
 ```
 
 Local built image;
@@ -128,7 +127,7 @@ cd $GOPATH/src/github.com/networkservicemesh/$x
 docker build --target=runtime --tag=registry.nordix.org/cloud-native/nsm/$x:latest .
 images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/$x:latest
 ```
-For building kernel forwarder and required components see [Build nsm components for kernel forwarder using vlan mechanism](../../doc/vlan-forwarder-build.md)
+For building vlan forwarder and required components see [Build nsm components for vlan forwarder using vlan mechanism](../../doc/vlan-forwarder-build.md)
 
 
 ## Data plane (forwarder) selection 
