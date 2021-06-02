@@ -172,6 +172,7 @@ test_vlan() {
 	unset xcluster_NSM_NSE
 	unset xcluster_NSM_FORWARDER
 }
+
 test_vlan_generic() {
 	tlog "=== nsm; GENERIC VLAN"
 	export xcluster_NSM_FORWARDER=generic-vlan
@@ -181,6 +182,165 @@ test_vlan_generic() {
 	otc 1 start_nsc_nse
 	otc 1 check_interfaces_vlan
 	xcluster_stop
+}
+
+test_bird_poc_nse() {
+    tlog "=== nsm; VLAN in NSC only; multus VLAN in NSE; BIRD (BGP); NSC <-> NSE"
+    export xcluster_NSM_FORWARDER=vlan
+    #export xcluster_NSM_FORWARDER=kernel
+    export xcluster_NSM_NSE=generic-vlan
+    #export xcluster_NSM_NSE=generic-vlan-oneleg
+    export xcluster_NSM_VLAN=true
+    #export xcluster_NSM_XTAG=vlan-0.2
+    test -n "$xcluster_NSM_BASE_INTERFACE" || export xcluster_NSM_BASE_INTERFACE=eth2
+    test -n "$xcluster_NSM_VLAN_ID" || export xcluster_NSM_VLAN_ID=100
+    test -n "$xcluster_TEST_NET_CIDDR_PREFIX" || export xcluster_TEST_NET_CIDDR_PREFIX=169.254.0.0/24
+    test -n "$xcluster_TEST_GW4_CIDDR_PREFIX" || export xcluster_TEST_GW4_CIDDR_PREFIX=169.254.0.254/24
+    test -n "$xcluster_TEST_GW6_CIDDR_PREFIX" || export xcluster_TEST_GW6_CIDDR_PREFIX=fe80::beef/64
+    export XCLUSTER_INSTALL_MULTUS
+    test_start
+    otcw up_base_interface
+    otc 1 label_nodes_nsc
+    otc 1 start_multus
+    otc 1 create_vlan_nad
+    # adjust manifests on all the worker nodes...
+    otcw annotate_nad_nse
+    otcw set_affinity_nsc
+    otcw config_nse
+    otcw add_bird_nsc
+    otcw add_bird_nse
+    otc 1 start_nsc_nse
+    otc 1 check_ext_interfaces_nse_ping
+    xcluster_stop
+    unset xcluster_NSM_VLAN
+    #unset xcluster_NSM_XTAG
+    unset xcluster_NSM_NSE
+    unset XCLUSTER_INSTALL_MULTUS
+    unset xcluster_NSM_FORWARDER
+}
+
+test_bird_poc_gw() {
+    # NSE is merely part of control plane, a separate POD acts as GW
+    tlog "=== nsm; VLAN in NSC only; multus VLAN in GW; BIRD (BGP); NSC <-> GW"
+    export xcluster_NSM_FORWARDER=vlan
+    #export xcluster_NSM_FORWARDER=kernel
+    export xcluster_NSM_NSE=generic-vlan
+    #export xcluster_NSM_NSE=generic-vlan-oneleg
+    export xcluster_NSM_VLAN=true
+    #export xcluster_NSM_XTAG=vlan-0.2
+    test -n "$xcluster_NSM_BASE_INTERFACE" || export xcluster_NSM_BASE_INTERFACE=eth2
+    test -n "$xcluster_NSM_VLAN_ID" || export xcluster_NSM_VLAN_ID=100
+    test -n "$xcluster_TEST_NET_CIDDR_PREFIX" || export xcluster_TEST_NET_CIDDR_PREFIX=169.254.0.0/24
+    test -n "$xcluster_TEST_GW4_CIDDR_PREFIX" || export xcluster_TEST_GW4_CIDDR_PREFIX=169.254.0.254/24
+    test -n "$xcluster_TEST_GW6_CIDDR_PREFIX" || export xcluster_TEST_GW6_CIDDR_PREFIX=fe80::beef/64
+    export XCLUSTER_INSTALL_MULTUS
+    test_start
+    otcw up_base_interface
+    otc 1 label_nodes_nsc
+    otc 1 start_multus
+    otc 1 create_vlan_nad
+    # adjust manifests on all the worker nodes...
+    otcw set_affinity_nsc
+    otcw add_bird_nsc
+    otcw config_nse
+    otc 1 start_gateway_with_bird
+    otc 1 start_nsc_nse
+    otc 1 check_ext_interfaces_ping
+    xcluster_stop
+    unset xcluster_NSM_VLAN
+    #unset xcluster_NSM_XTAG
+    unset xcluster_NSM_NSE
+    unset XCLUSTER_INSTALL_MULTUS
+    unset xcluster_NSM_FORWARDER
+}
+
+test_bird_poc_gw_trenches() {
+    # NSE is merely part of control plane, a separate POD acts as GW (two "trenches")
+    tlog "=== nsm; VLAN in NSC only; multus VLAN in GW; BIRD (BGP); 2 x [NSC <-> GW]"
+    export xcluster_NSM_FORWARDER=vlan
+    #export xcluster_NSM_FORWARDER=kernel
+    export xcluster_NSM_NSE=generic-vlan
+    #export xcluster_NSM_NSE=generic-vlan-oneleg
+    export xcluster_NSM_VLAN=true
+    #export xcluster_NSM_XTAG=vlan-0.2
+    test -n "$xcluster_NSM_BASE_INTERFACE" || export xcluster_NSM_BASE_INTERFACE=eth2
+    test -n "$xcluster_NSM_VLAN_ID" || export xcluster_NSM_VLAN_ID=100
+    test -n "$xcluster_TEST_NET_CIDDR_PREFIX" || export xcluster_TEST_NET_CIDDR_PREFIX=169.254.0.0/24
+    test -n "$xcluster_TEST_GW4_CIDDR_PREFIX" || export xcluster_TEST_GW4_CIDDR_PREFIX=169.254.0.254/24
+    test -n "$xcluster_TEST_GW6_CIDDR_PREFIX" || export xcluster_TEST_GW6_CIDDR_PREFIX=fe80::beef/64
+    export XCLUSTER_INSTALL_MULTUS
+    test_start
+    otcw up_base_interface
+    otcw backup_nsc_nse
+    otc 1 label_nodes_nsc
+    otc 1 start_multus
+    otc 1 create_vlan_nad
+    # adjust manifests on all the worker nodes...
+    otcw set_affinity_nsc
+    otcw add_bird_nsc
+    otcw config_nse
+    otc 1 start_gateway_with_bird
+    otc 1 start_nsc_nse
+    otc 1 check_ext_interfaces_ping
+    tlog "Deploy a second set of NSC - NSE - GW"
+    # start nsc2, nse2, gateway2
+    otcw restore_nsc_nse
+    otc 1 create_second_vlan_nad
+    otcw update_second_nsc
+    otcw set_affinity_second_nsc
+    otcw add_bird_second_nsc
+    otcw update_second_nse
+    otcw config_second_nse
+    otc 1 start_second_gateway_with_bird
+    otc 1 start_second_nsc_nse
+    otc 1 check_second_ext_interfaces_ping
+
+    xcluster_stop
+    unset xcluster_NSM_VLAN
+    #unset xcluster_NSM_XTAG
+    unset xcluster_NSM_NSE
+    unset XCLUSTER_INSTALL_MULTUS
+    unset xcluster_NSM_FORWARDER
+}
+
+test_bird_poc_gw_ecfe() {
+    # NSE is merely part of control plane, separate PODs act as GW
+    # Use a setup like ECFE does:
+    # - 2 GWs each expecting VIP routes through BGP
+    # - GWs do not advertise routes to FEs - instead a static "VRRP" GW is used on FE side)
+	tlog "=== nsm; VLAN in NSC only; multus VLAN in GW; BIRD (\"ECFE\" BGP); NSC <-> [GW1, GW2]"
+	export xcluster_NSM_FORWARDER=vlan
+    #export xcluster_NSM_FORWARDER=kernel
+    export xcluster_NSM_NSE=generic-vlan
+    #export xcluster_NSM_NSE=generic-vlan-oneleg
+    export xcluster_NSM_VLAN=true
+    #export xcluster_NSM_XTAG=vlan-0.2
+    test -n "$xcluster_NSM_BASE_INTERFACE" || export xcluster_NSM_BASE_INTERFACE=eth2
+    test -n "$xcluster_NSM_VLAN_ID" || export xcluster_NSM_VLAN_ID=100
+    test -n "$xcluster_TEST_NET_CIDDR_PREFIX" || export xcluster_TEST_NET_CIDDR_PREFIX=169.254.0.0/24
+    test -n "$xcluster_TEST_GW4_CIDDR_PREFIX" || export xcluster_TEST_GW4_CIDDR_PREFIX=169.254.0.253/24
+    test -n "$xcluster_TEST_GW6_CIDDR_PREFIX" || export xcluster_TEST_GW6_CIDDR_PREFIX=fe80::bee1/64
+    export XCLUSTER_INSTALL_MULTUS
+    test_start
+    otcw up_base_interface
+    otcw backup_nsc_nse
+    otc 1 label_nodes_nsc
+    otc 1 start_multus
+    otc 1 create_vlan_nad
+    # adjust manifests on all the worker nodes...
+    otcw set_affinity_nsc
+    otcw add_ecfe_bird_nsc
+    otcw config_nse
+    otc 1 start_ecfe_gateways_with_bird
+    otc 1 start_nsc_nse
+    otc 1 check_ext_interfaces_ecfe
+
+    xcluster_stop
+    unset xcluster_NSM_VLAN
+    #unset xcluster_NSM_XTAG
+    unset xcluster_NSM_NSE
+    unset XCLUSTER_INSTALL_MULTUS
+    unset xcluster_NSM_FORWARDER
 }
 
 test_multi_sel() {

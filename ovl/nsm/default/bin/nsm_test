@@ -152,6 +152,9 @@ cmd_tcase_start_forwarder() {
 
 cmd_tcase_start_nsc_nse() {
 	test -n "$NSM_NSE" || NSM_NSE=icmp-responder
+	test -n "$NSM_SERVICE_NAME" || NSM_SERVICE_NAME=icmp-responder
+	test -n "$NSM_NSE_NAME" || NSM_NSE_NAME=nse
+	test -n "$NSM_NSC_NAME" || NSM_NSC_NAME=nsc
 	if test -n "$NSE_HOST"; then
 		sed -i -e "s,vm-003,$NSE_HOST," $yamld/nse-$NSM_NSE.yaml
 	else
@@ -164,6 +167,7 @@ cmd_tcase_start_nsc_nse() {
 	        tlog "NSC; using vlan mechanism"
 	        nsc_yaml=$yamld/nsc-vlan.yaml
 	fi
+	sed -i -e "s,//[0-9a-zA-Z_\.\-]\+/nsm-1,//$NSM_SERVICE_NAME/nsm-1," ${nsc_yaml}
 	if test -n "$NSM_SELECT_FORWARDER"; then
 		# alter service label in nsc config
 		tlog "NSC; prefer forwarder-$NSM_SELECT_FORWARDER"
@@ -185,9 +189,9 @@ cmd_tcase_start_nsc_nse() {
 	fi
 	tcase "Start the nsc and nse-$NSM_NSE on $NSE_HOST"
 	$kubectl apply -f $yamld/nse-$NSM_NSE.yaml
-	test_deployment nse 60
+	test_deployment $NSM_NSE_NAME 60
 	$kubectl apply -f ${nsc_yaml}
-	test_deployment nsc 60
+	test_deployment $NSM_NSC_NAME 60
 }
 
 cmd_tcase_check_interfaces() {
@@ -198,13 +202,13 @@ cmd_tcase_check_interfaces() {
 	pod=$(get_pod app=nsc)
 	tex kubectl exec $pod -- ifconfig | grep -B1 169.254. > $tmp/nsc || tdie NSC
 	iface=$(head -1 $tmp/nsc | cut -d ' ' -f1)
-	inet=$(grep -oE '169\.254\.0\.[0-9]+' $tmp/nsc)
+	inet=$(grep -oE '169\.254\.0\.[0-9]+' $tmp/nsc | sed -n 1p)
 	tlog "NSC; $iface, $inet"
 
 	pod=$(get_pod app=nse)
 	tex kubectl exec $pod -- ifconfig | grep -B1 169.254. > $tmp/nse || tdie NSE
 	iface=$(head -1 $tmp/nse | cut -d ' ' -f1)
-	inet=$(grep -oE '169\.254\.0\.[0-9]+' $tmp/nse)
+	inet=$(grep -oE '169\.254\.0\.[0-9]+' $tmp/nse | sed -n 1p)
 	tlog "NSE; $iface, $inet"
 
 	pod=$(get_pod app=nsc)
@@ -298,6 +302,7 @@ cmd_tcase_check_interfaces_multi() {
 	fi
 }
 
+. $(dirname "$0")/bird_test
 . /etc/profile
 test -r /usr/lib/xctest && . /usr/lib/xctest
 indent='  '
@@ -305,7 +310,7 @@ indent='  '
 # Get the command
 cmd=$1
 shift
-grep -q "^cmd_$cmd()" $0 $hook || die "Invalid command [$cmd]"
+grep -q "^cmd_$cmd()" $0 $(dirname "$0")/bird_test $hook || die "Invalid command [$cmd]"
 
 while echo "$1" | grep -q '^--'; do
     if echo $1 | grep -q =; then

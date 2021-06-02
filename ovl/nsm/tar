@@ -50,7 +50,7 @@ d=$GOPATH/src/github.com/networkservicemesh/examples/examples/bridge-domain
 test -d "$d/k8s" && cp -r "$d/k8s" $tmp/etc/kubernetes/bridge-domain
 
 d=$GOPATH/src/github.com/Nordix/nsm-forwarder-generic
-for f in forwarder-generic.yaml forwarder-kernel.yaml forwarder-generic-vlan.yaml; do
+for f in forwarder-generic.yaml forwarder-kernel.yaml forwarder-generic-vlan.yaml forwarder-vlan.yaml; do
 	 test -r $d/$f && cp $d/$f $tmp/etc/kubernetes/nsm-next-gen
 done
 
@@ -58,6 +58,30 @@ done
 d=$GOPATH/src/github.com/Nordix/nsm-nse-generic
 f=nse-generic.yaml
 test -r $d/$f && cp $d/$f $tmp/etc/kubernetes/nsm-next-gen
+
+if test -n $XCLUSTER_INSTALL_MULTUS; then
+       if [ ! -d $XCLUSTER_WORKSPACE/multus-cni ]; then
+               log "Clone multus-cni to $XCLUSTER_WORKSPACE/multus-cni"
+               git clone https://github.com/k8snetworkplumbingwg/multus-cni.git $XCLUSTER_WORKSPACE/multus-cni/
+       fi
+
+       if [ ! -d $XCLUSTER_WORKSPACE/cni-plugins ]; then
+               log "Clone cni-plugins to $XCLUSTER_WORKSPACE/cni-plugins"
+               git clone https://github.com/containernetworking/plugins $XCLUSTER_WORKSPACE/cni-plugins/
+               cd $XCLUSTER_WORKSPACE/cni-plugins/
+               git checkout v0.8.7
+               log "Build CNI plugins v0.8.7"
+               ./build_linux.sh
+               cd -
+       fi
+
+       log "Copy multus-cni to $tmp/etc/kubernetes/"
+       test -d $XCLUSTER_WORKSPACE/multus-cni && cp -r $XCLUSTER_WORKSPACE/multus-cni $tmp/etc/kubernetes/
+       log "Copy CNI plugins to $tmp/opt/cni/bin"
+       test -f $XCLUSTER_WORKSPACE/cni-plugins/bin/vlan && mkdir -p $tmp/opt/cni/bin && cp $XCLUSTER_WORKSPACE/cni-plugins/bin/vlan $tmp/opt/cni/bin/
+       test -f $XCLUSTER_WORKSPACE/cni-plugins/bin/static && mkdir -p $tmp/opt/cni/bin && cp $XCLUSTER_WORKSPACE/cni-plugins/bin/static $tmp/opt/cni/bin/
+       #test -d $XCLUSTER_WORKSPACE/cni-plugins/bin && mkdir -p $tmp/opt/cni/bin && cp $XCLUSTER_WORKSPACE/cni-plugins/bin/* $tmp/opt/cni/bin/
+fi
 
 cd $tmp
 tar cf "$1" *

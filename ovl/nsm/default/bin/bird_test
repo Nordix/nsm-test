@@ -1,0 +1,593 @@
+#! /bin/sh
+##
+## bird_test --
+##
+## nsm_test helper commands for a "BIRD" related POC:
+## - Test is similar to one-legged kernel-vlan forwarder test.
+## - Depending on the test NSE or a dedicated GW rely on Multus to get
+##   a vlan interface setup in its POD (in the same subnet used by the NSM service).
+## - Both NSC and NSE|GW has an extra container to run BIRD routing suite (BGP).
+## - In NSC BIRD acts as if it was a FE of a cluster (hosting VIP addresses on
+##   its loopback as well to mimic a dummy cluster).
+## - NSE|GW acts as if it was a GW router for the dummy cluster consisting of NSC(s).
+## - NSC uses affinity rules not to get scheduled on the same worker node. (Because of
+##   this the nodes are labeled.)
+##
+## Notes;
+## - TEST_GW4_CIDDR_PREFIX specifies the subnet shared by NSC and NSE|GW via secondary network.
+##   IPAM (in NSE) shall assign addresses to NSCs from said range. While the POD acting as GW
+##   gets IP from "the end" of same range through Multus static IPAM. Ideally this would require
+##   a feature on NSE side that would allow certain IPs to get reserved. This feature is missing
+##   from the most recent nse-vlan, but will come later. However according to tests even the ippool
+##   based IPAM starts assigning addresses from the start of the range. Hence lack of "IP reserve"
+##   feature should not cause any issues considering these tests are meant to be part of a POC.
+## - NSM_NSC_NAME|NSM_NSE_NAME refer to:
+## 		- Deployment name and the related "app" label value
+## 		- POD's "app" label value
+## 		- a container name
+## - Commands tend to modify existing manifest files (on xcluster).
+## - Supposed to run with regular bridge cni plugin and with calico as well.
+##   E.g.: xcadmin k8s_test --cni=calico --no-stop nsm bird_poc_gw_trenches > $log
+##
+## Commands;
+##
+
+
+cmd_tcase_label_nodes_nsc() {
+	tcase "Add \"nsc-label=nsc\" to nodes vm-002, vm-004"
+	# nse|gw are tied to vm-003, but probably an additional podAntiAffinity rule could make it work even if vm-003 was labeled...
+	#$kubectl label --overwrite nodes vm-001 vm-002 vm-004 nsc-label=nsc
+	$kubectl label --overwrite nodes vm-002 vm-004 nsc-label=nsc
+}
+
+cmd_tcase_set_affinity_nsc() {
+	test -n "$NSM_NSC_NAME" || NSM_NSC_NAME=nsc
+	tcase "Set NSC affinity (name=$NSM_NSC_NAME)"
+
+	local nsc_yaml=$yamld/nsc.yaml
+	if test -n "$NSM_VLAN" -a -z $NSM_NO_VLAN_MECH; then
+	        nsc_yaml=$yamld/nsc-vlan.yaml
+	fi
+
+	# remove nodeSelector part first
+	sed -i -e "/nodeSelector:/{N;d}" ${nsc_yaml}
+	
+	# add affinity rules to only allow deploying nsc on nodes with label nsc-label=nsc,
+	# and on nodes without any other nsc app running yet
+	# Note: node labels is always nsc-label=nsc irrespective of NSC NAME
+    local p01="affinity:"
+    local p02="    nodeAffinity:"
+    local p03="      requiredDuringSchedulingIgnoredDuringExecution:"
+    local p04="        nodeSelectorTerms:"
+    local p05="        - matchExpressions:"
+    local p06="          - key: nsc-label"
+    local p07="            operator: In"
+    local p08="            values:"
+    local p09="            - nsc"
+    local p10="    podAntiAffinity:"
+    local p11="      requiredDuringSchedulingIgnoredDuringExecution:"
+    local p12="      - labelSelector:"
+    local p13="          matchExpressions:"
+    local p14="          - key: app"
+    local p15="            operator: In"
+    local p16="            values:"
+    local p17="            - \"$NSM_NSC_NAME\""
+    local p18="        topologyKey: kubernetes.io/hostname"
+	sed -i -e "s|^\(\s*\)containers:|\1$p01\n\1$p02\n\1$p03\n\1$p04\n\1$p05\n\1$p06\n\1$p07\n\1$p08\n\1$p09\n\1$p10\n\1$p11\n\1$p12\n\1$p13\n\1$p14\n\1$p15\n\1$p16\n\1$p17\n\1$p18\n&|" ${nsc_yaml}
+}
+
+cmd_tcase_add_bird_nsc() {
+	test -n "$TEST_GW4_CIDDR_PREFIX" || TEST_GW4_CIDDR_PREFIX="169.254.0.254/24"
+	test -n "$TEST_GW6_CIDDR_PREFIX" || TEST_GW6_CIDDR_PREFIX="fe80::beef/64"
+	test -n "$TEST_NSC_BIRD_CONF" || TEST_NSC_BIRD_CONF=/etc/bird/bird-fe.conf
+
+	local nsc_yaml=$yamld/nsc.yaml
+	if test -n "$NSM_VLAN" -a -z $NSM_NO_VLAN_MECH; then
+	        nsc_yaml=$yamld/nsc-vlan.yaml
+	fi
+
+	tcase "Adding BIRD to NSC manifest"
+    local p1="  - name: bird"
+    local p2="    image: registry.nordix.org/cloud-native/nfe-bird2:poc-0"
+    local p3="    imagePullPolicy: IfNotPresent"
+    local p4="    securityContext:"
+    local p5="      privileged: true"
+    local p6="    command: [ \"/tmp/dummy-cluster.sh\" ]"
+    local p7="    args: [ \"--gw4_addr=${TEST_GW4_CIDDR_PREFIX%%/*}\", \"--gw6_addr=${TEST_GW6_CIDDR_PREFIX%%/*}\", \"--rt=200\",  \"--bird_conf=$TEST_NSC_BIRD_CONF\", \"-d\" ]"
+	
+	sed -i -e "s|^\(\s*\)volumes:|\1$p1\n\1$p2\n\1$p3\n\1$p4\n\1$p5\n\1$p6\n\1$p7\n&|" ${nsc_yaml}
+}
+
+# TODO
+cmd_tcase_add_bird_cap_nsc() {
+	test -n "$TEST_GW4_CIDDR_PREFIX" || TEST_GW4_CIDDR_PREFIX="169.254.0.254/24"
+	test -n "$TEST_GW6_CIDDR_PREFIX" || TEST_GW6_CIDDR_PREFIX="fe80::beef/64"
+
+	local nsc_yaml=$yamld/nsc.yaml
+	if test -n "$NSM_VLAN" -a -z $NSM_NO_VLAN_MECH; then
+	        nsc_yaml=$yamld/nsc-vlan.yaml
+	fi
+	
+	tcase "Adding BIRD to NSC manifest"
+     local p1="  - name: bird"
+     local p2="    image: registry.nordix.org/cloud-native/nfe-bird2:poc-0"
+     local p3="    imagePullPolicy: IfNotPresent"
+     local p4="    securityContext:"
+     local p5="      capabilities:"
+	 local p6="        add:"
+	 local p7="        - NET_ADMIN"
+	 local p8="        - NET_RAW"
+	 local p9="        - DAC_OVERRIDE"
+	local p10="        - NET_BIND_SERVICE"
+	local p11="      privileged: false"
+    local p12="    command: [ \"/tmp/dummy-cluster.sh\" ]"
+    local p13="    args: [ \"--gw4_addr=${TEST_GW4_CIDDR_PREFIX%%/*}\", \"--gw6_addr=${TEST_GW6_CIDDR_PREFIX%%/*}\", \"--rt=200\", \"--bird_conf=/etc/bird/bird-fe.conf\", \"-d\" ]"
+	
+	sed -i -e "s|^\(\s*\)volumes:|\1$p1\n\1$p2\n\1$p3\n\1$p4\n\1$p5\n\1$p6\n\1$p7\n\1$p8\n\1$p9\n\1$p10\n\1$p11\n\1$p12\n\1$p13\n&|" ${nsc_yaml}
+}
+
+cmd_tcase_add_bird_nse() {
+	test -n "$NSM_NSE" || NSM_NSE=generic-vlan
+	#test -n "$NSM_NSE" || NSM_NSE=generic-vlan-oneleg
+	tcase "Adding BIRD to NSE manifest nse-$NSM_NSE.yaml"
+    local p1="  - name: bird"
+    local p2="    image: registry.nordix.org/cloud-native/nfe-bird2:poc-0"
+    local p3="    imagePullPolicy: IfNotPresent"
+    local p4="    securityContext:"
+    local p5="      privileged: true"
+    local p6="    command: [ \"/usr/sbin/bird\" ]"
+    local p7="    args: [ \"-d\", \"-c\", \"/etc/bird/bird-gw.conf\" ]"
+	
+	sed -i -e "s|^\(\s*\)volumes:|\1$p1\n\1$p2\n\1$p3\n\1$p4\n\1$p5\n\1$p6\n\1$p7\n&|" $yamld/nse-$NSM_NSE.yaml
+}
+
+# - Reserve the gateway IP at the IPAM operated by NSE (NSE_SERVICE_ADDRESS)
+#   Note: required by the BIRD config in NSCs to have fixed neighbor IPs representing the GW 
+# - Set NSE_CIDR_PREFIX
+# - Disable NSE_POINT2POINT
+# - Set base interface and VLAN ID
+# - Set NSE_SERVICE_NAME
+cmd_tcase_config_nse() {
+	test -n "$NSM_BASE_INTERFACE" || tdie "NSM base interface not set"
+	test -n "$NSM_VLAN_ID" || NSM_VLAN_ID=100
+	test -n "$NSM_NSE" || NSM_NSE=generic-vlan
+	#test -n "$NSM_NSE" || NSM_NSE=generic-vlan-oneleg
+	test -n "$TEST_GW4_CIDDR_PREFIX" || TEST_GW4_CIDDR_PREFIX=169.254.0.254/24
+	test -n "$TEST_NET_CIDDR_PREFIX" || TEST_NET_CIDDR_PREFIX=169.254.0.0/24
+	test -n "$NSM_SERVICE_NAME" || NSM_SERVICE_NAME=icmp-responder
+	tcase "Configure Gateway IP \"$TEST_GW4_CIDDR_PREFIX\" at IPAM"
+	
+	# IPAM; set NSE_CIDR_PREFIX (i.e the IPv4 network IPAM uses to assign addresses from)
+	if grep -q "^\s\+- name: NSE_CIDR_PREFIX" $yamld/nse-$NSM_NSE.yaml; then
+		sed -i -e "/^\( *\)- name: NSE_CIDR_PREFIX/{n;s|value:.*|value: \"$TEST_NET_CIDDR_PREFIX\"|;}" $yamld/nse-$NSM_NSE.yaml
+	else
+		local p1="  - name: NSE_CIDR_PREFIX"
+		local p2="    value: \"$TEST_NET_CIDDR_PREFIX\""
+		sed -i -e "s|^\(\s*\)env:|&\n\1$p1\n\1$p2|" $yamld/nse-$NSM_NSE.yaml
+	fi
+
+	# IPAM; reserve the address intended to be used by the GW
+	# TODO: modify IPAM code in NSE to support this...
+    local p1="- name: NSE_SERVICE_ADDRESS"
+    local p2="  value: \"$TEST_GW4_CIDDR_PREFIX\""
+	sed -i -e "s|^\(\s*\)- name: NSE_CIDR_PREFIX|\1$p1\n\1$p2\n&|" $yamld/nse-$NSM_NSE.yaml
+
+	if grep -qw NSE_POINT2POINT $yamld/nse-$NSM_NSE.yaml; then
+		# make sure point2point service is disabled
+		sed -i -e "/^\( *\)- name: NSE_POINT2POINT/{n;s|value:.*|value: \"False\"|;}" $yamld/nse-$NSM_NSE.yaml
+	fi
+
+	if grep -qw NSE_SERVICE_NAME $yamld/nse-$NSM_NSE.yaml; then
+		# make sure proper NSM service name is set
+		sed -i -e "/^\( *\)- name: NSE_SERVICE_NAME/{n;s|value:.*|value: \"$NSM_SERVICE_NAME\"|;}" $yamld/nse-$NSM_NSE.yaml
+	fi
+
+	if grep -qw NSE_VLAN_BASE_IFNAME $yamld/nse-$NSM_NSE.yaml; then
+		# make sure to use the proper base interface
+		sed -i -e "/^\( *\)- name: NSE_VLAN_BASE_IFNAME/{n;s|value:.*|value: \"$NSM_BASE_INTERFACE\"|;}" $yamld/nse-$NSM_NSE.yaml
+	fi
+	if grep -qw NSE_VLAN_ID $yamld/nse-$NSM_NSE.yaml; then
+		# make sure to use the proper base interface
+		sed -i -e "/^\( *\)- name: NSE_VLAN_ID/{n;s|value:.*|value: \"$NSM_VLAN_ID\"|;}" $yamld/nse-$NSM_NSE.yaml
+	fi
+
+	# (old config)
+	if grep -qw NSE_VLAN_BASE $yamld/nse-$NSM_NSE.yaml; then
+		# make sure to use the proper base interface and VLAN ID
+		sed -i -e "/^\( *\)- name: NSE_VLAN_BASE/{n;s/value:.*/value: \"$NSM_BASE_INTERFACE.$NSM_VLAN_ID\"/;}" $yamld/nse-$NSM_NSE.yaml
+	fi
+}
+
+cmd_tcase_up_base_interface() {
+	# multus requires master interface to be UP
+	tcase "Bring dev $NSM_BASE_INTERFACE up"
+	test -n "$NSM_BASE_INTERFACE" || tdie "secondary interface not set"
+	ip link set dev $NSM_BASE_INTERFACE up
+}
+
+cmd_tcase_start_multus() {
+	tcase "Start Multus"
+	test -f /etc/kubernetes/multus-cni/images/multus-daemonset.yml || tdie "multus-daemonset.yml not found"
+	$kubectl apply -f /etc/kubernetes/multus-cni/images/multus-daemonset.yml
+	kubectl="kubectl -n kube-system"
+	test_daemonset kube-multus-ds 60
+}
+
+cmd_tcase_create_vlan_nad() {
+	test -n "$NSM_BASE_INTERFACE" || tdie "NSM base interface not set"
+	test -n "$NSM_VLAN_ID" || NSM_VLAN_ID=100
+	test -n "$NAD_NAME" || NAD_NAME="vlan-conf"
+	tcase "Create VLAN network-attachement-definiation ($NAD_NAME, $NSM_BASE_INTERFACE.$NSM_VLAN_ID)"
+
+	{
+        echo "apiVersion: \"k8s.cni.cncf.io/v1\""
+        echo "kind: NetworkAttachmentDefinition"
+        echo "metadata:"
+        echo "  name: $NAD_NAME"
+        echo "spec:"
+        echo "  config: '{"
+        echo "      \"cniVersion\": \"0.3.1\","
+        echo "      \"plugins\": ["
+        echo "        {"
+        echo "          \"type\": \"vlan\","
+        echo "          \"capabilities\": { \"ips\": true },"
+        echo "          \"master\": \"$NSM_BASE_INTERFACE\","
+        echo "          \"vlanId\": $NSM_VLAN_ID,"
+        echo "          \"ipam\": {"
+        echo "            \"type\": \"static\""
+        echo "          }"
+        echo "        }"
+        echo "      ]"
+        echo "    }'"
+	} > /etc/kubernetes/multus-cni/examples/vlan-nad.yaml
+
+	test -f /etc/kubernetes/multus-cni/examples/vlan-nad.yaml || tdie "vlan network-attachment-definiation not found"
+	kubectl="kubectl -n default"
+	$kubectl apply -f /etc/kubernetes/multus-cni/examples/vlan-nad.yaml
+	sleep 1
+}
+
+cmd_tcase_annotate_nad_nse() {
+	test -n "$NSM_NSE" || NSM_NSE=generic-vlan
+	#test -n "$NSM_NSE" || NSM_NSE=generic-vlan-oneleg
+	tcase "Add secondary network annotation to NSE manifest nse-$NSM_NSE.yaml"
+
+	# name of the network-attachment-definition to be used to create the interface
+	test -n "$NAD_NAME" || NAD_NAME="vlan-conf"
+	# name multus uses to create the interface in NSE POD
+	test -n "$TEST_INTERFACE" || TEST_INTERFACE="vlan0"
+	# address(es) multus assigns to the interface it creates
+	test -n "$TEST_GW4_CIDDR_PREFIX" || TEST_GW4_CIDDR_PREFIX="169.254.0.254/24"
+	test -n "$TEST_GW6_CIDDR_PREFIX" || TEST_GW6_CIDDR_PREFIX="fe80::beef/64"
+
+	local p1="  annotations:"
+	local p2="    k8s.v1.cni.cncf.io/networks: \'["
+	local p3="      { \"name\": \"$NAD_NAME\","
+	local p4="        \"ips\": [ \"$TEST_GW4_CIDDR_PREFIX\", \"$TEST_GW6_CIDDR_PREFIX\" ],"
+	local p5="        \"interface\": \"$TEST_INTERFACE\""
+	local p6="      }]'"
+	# find the proper "template:" and "metadata:" line pair and add annotation parts starting from the next line
+	# note: won't care if manifest already annotated...
+	sed -Ei "{N; s|^  template:\n( *)metadata:|&\n\1$p1\n\1$p2\n\1$p3\n\1$p4\n\1$p5\n\1$p6| ;P; D}"  $yamld/nse-$NSM_NSE.yaml
+}
+
+# Create manifest for a Gateway entity that shall host a secondary VLAN network,
+# and also runs BIRD (that shall communicate with BIRD instance(s) in NSC(s)).
+# Note: The whole point of the Gateway is to separate NSE from traffic plane...
+cmd_tcase_start_gateway_with_bird() {
+	test -n "$TEST_GW_NAME" || TEST_GW_NAME=gateway
+	tcase "Start separate Gateway running BIRD (name=$TEST_GW_NAME)"
+	test -n "$NSM_BASE_INTERFACE" || tdie "NSM base interface not set"
+	# name of the network-attachment-definition to be used to create the interface
+	test -n "$NAD_NAME" || NAD_NAME="vlan-conf"
+	# name multus uses to create the interface in GW POD
+	test -n "$TEST_INTERFACE" || TEST_INTERFACE="vlan0"
+	# address(es) multus assigns to the interface it creates
+	test -n "$TEST_GW4_CIDDR_PREFIX" || TEST_GW4_CIDDR_PREFIX=169.254.0.254/24
+	test -n "$TEST_GW6_CIDDR_PREFIX" || TEST_GW6_CIDDR_PREFIX=fe80::beef/64
+	test -n "$TEST_GW_HOST" || TEST_GW_HOST=vm-003
+	test -n "$TEST_GW_BIRD_CONF" || TEST_GW_BIRD_CONF=/etc/bird/bird-gw.conf
+
+	local extra_ips
+	extra_ips=""
+	if test -n "$TEST_GW_CONF_EXTRA_IPS"; then
+		for extra_ip in $TEST_GW_CONF_EXTRA_IPS; do extra_ips="$extra_ips, \"$extra_ip\""; echo "extra_ips=$extra_ips"; done
+	fi
+
+	{
+        echo "---"
+        echo "apiVersion: apps/v1"
+        echo "kind: Deployment"
+        echo "metadata:"
+        echo "  name: $TEST_GW_NAME"
+        echo "  labels:"
+        echo "    app: $TEST_GW_NAME"
+        echo "spec:"
+        echo "  replicas: 1"
+        echo "  selector:"
+        echo "    matchLabels:"
+        echo "      app: $TEST_GW_NAME"
+        echo "  template:"
+        echo "    metadata:"
+		echo "      annotations:"
+		echo "        k8s.v1.cni.cncf.io/networks: '["
+		echo "          { \"name\": \"$NAD_NAME\","
+		echo "            \"ips\": [ \"$TEST_GW4_CIDDR_PREFIX\", \"$TEST_GW6_CIDDR_PREFIX\"$extra_ips ],"
+		echo "            \"interface\": \"$TEST_INTERFACE\""
+		echo "          }]'"
+        echo "      labels:"
+        echo "        app: $TEST_GW_NAME"
+        echo "    spec:"
+        echo "      nodeSelector:"
+        echo "        kubernetes.io/hostname: $TEST_GW_HOST"
+		echo "      containers:"
+		echo "        - name: bird"
+		echo "          image: registry.nordix.org/cloud-native/nfe-bird2:poc-0"
+		echo "          imagePullPolicy: IfNotPresent"
+		echo "          securityContext:"
+		echo "            privileged: true"
+		echo "          command: [ \"/usr/sbin/bird\" ]"
+		echo "          args: [\"-d\", \"-c\", \"$TEST_GW_BIRD_CONF\"]"
+	} > /etc/kubernetes/gw-bird.yaml
+
+	test -f /etc/kubernetes/gw-bird.yaml || tdie "Gateway manifest not found"
+	kubectl="kubectl -n default"
+	$kubectl apply -f /etc/kubernetes/gw-bird.yaml
+	test_deployment $TEST_GW_NAME 60
+}
+
+cmd_tcase_check_ext_interfaces() {
+	tcase "Check injected interfaces"
+	test -n "$NSM_NSC_NAME" || NSM_NSC_NAME=nsc
+	test -n "$TEST_GW_NAME" || TEST_GW_NAME=gateway
+	mkdir -p $tmp
+	local pod iface inet
+
+	sleep 1
+	pod=$(get_pod app=$TEST_GW_NAME)
+	tex kubectl exec $pod -c bird -- ifconfig | grep -B1 169.254. > $tmp/gw || tdie "GW (name=$TEST_GW_NAME)"
+	iface=$(head -1 $tmp/gw | cut -d ' ' -f1)
+	gw_inet=$(grep -oE '169\.254\.[0-9]+\.[0-9]+' $tmp/gw | sed -n 1p)
+	vlanconf=$(kubectl exec $pod -- tail -1 /proc/net/vlan/config)
+	tlog "$TEST_GW_NAME; $iface, $gw_inet"
+	tlog "        ---------------------------------"
+	tlog "        Vlan Config"
+	tlog "        INTERFACE      | VLANID | BASE"
+	tlog "        $vlanconf"
+
+	for pod in $(kubectl get pods -l app=$NSM_NSC_NAME -o name); do
+		tex kubectl exec $pod -c bird -- ifconfig | grep -B1 169.254. > $tmp/nsc || tdie "NSC (name=$NSM_NSC_NAME)"
+		iface=$(head -1 $tmp/nsc | cut -d ' ' -f1)
+		inet=$(grep -oE '169\.254\.[0-9]+\.[0-9]+' $tmp/nsc | sed -n 1p)
+		vlanconf=$(kubectl exec $pod -c $NSM_NSC_NAME -- tail -1 /proc/net/vlan/config)
+		tlog ""
+		tlog "NSC($NSM_NSC_NAME); $iface, $inet"
+		tlog "        ---------------------------------"
+		tlog "        Vlan Config"
+		tlog "        INTERFACE      | VLANID | BASE"
+		tlog "        $vlanconf"
+		tlog "        Ping $gw_inet from NSC ($pod)"
+		kubectl exec $pod -c $NSM_NSC_NAME -- ping -c1 -W1 $gw_inet || tdie "Ping $NSM_NSC_NAME->$TEST_GW_NAME"
+	done
+}
+
+cmd_tcase_check_ext_interfaces_ping() {
+	test -n "$NSM_NSC_NAME" || NSM_NSC_NAME=nsc
+	test -n "$TEST_GW_NAME" || TEST_GW_NAME=gateway
+
+	cmd_tcase_check_ext_interfaces
+	cmd_tcase_ping_exposed_ips
+}
+
+cmd_tcase_check_ext_interfaces_nse_ping() {
+	test -n "$NSM_NSC_NAME" || NSM_NSC_NAME=nsc
+	test -n "$TEST_GW_NAME" || TEST_GW_NAME=nse
+
+	cmd_tcase_check_ext_interfaces
+	cmd_tcase_ping_exposed_ips
+}
+
+cmd_tcase_ping_exposed_ips() {
+    tcase "Ping exposed IP addresses"
+	test -n "$TEST_GW_NAME" || TEST_GW_NAME=gateway
+    mkdir -p $tmp
+    local pod vip
+
+	for pod in $(kubectl get pods -l app=$TEST_GW_NAME -o name); do
+		# check "VIP" addresses hardcoded on the NSC side
+		for vip in 2.2.2.2 3.3.3.3 4.4.4.4 2000::2 3000::3 4000::4; do
+			tlog "Ping $vip from $TEST_GW_NAME ($pod)"
+			tex kubectl exec $pod -c bird -- ping -c1 -W1 $vip || tdie "Ping $vip $TEST_GW_NAME->nsc"
+		done
+	done
+}
+
+#--------------------------------------------------------------------------------------
+
+cmd_tcase_create_second_vlan_nad() {
+	test -n "$NSM_BASE_INTERFACE" || tdie "NSM base interface not set"
+	test -n "$NSM_VLAN_ID" || tdie "NSM VLAN ID not set"
+	let "NSM_VLAN_ID=$NSM_VLAN_ID + 1"
+	NAD_NAME="vlan-conf2"
+
+	cmd_tcase_create_vlan_nad
+}
+
+cmd_tcase_backup_nsc_nse() {
+	test -n "$NSM_NSE" || NSM_NSE=generic-vlan
+	#test -n "$NSM_NSE" || NSM_NSE=generic-vlan-oneleg
+
+	local nsc_yaml=$yamld/nsc.yaml
+	if test -n "$NSM_VLAN" -a -z $NSM_NO_VLAN_MECH; then
+	        nsc_yaml=$yamld/nsc-vlan.yaml
+	fi
+
+	cp -f ${nsc_yaml} $yamld/nsc.yaml_orig
+	cp -f $yamld/nse-$NSM_NSE.yaml $yamld/nse-$NSM_NSE.yaml_orig
+}
+
+cmd_tcase_restore_nsc_nse() {
+	test -n "$NSM_NSE" || NSM_NSE=generic-vlan
+	#test -n "$NSM_NSE" || NSM_NSE=generic-vlan-oneleg
+
+	local nsc_yaml=$yamld/nsc.yaml
+	if test -n "$NSM_VLAN" -a -z $NSM_NO_VLAN_MECH; then
+	        nsc_yaml=$yamld/nsc-vlan.yaml
+	fi
+
+	cp -f $yamld/nsc.yaml_orig ${nsc_yaml}
+	cp -f $yamld/nse-$NSM_NSE.yaml_orig $yamld/nse-$NSM_NSE.yaml
+}
+
+cmd_tcase_update_second_nsc() {
+	NSM_NSC_NAME=nsc2
+	tcase "Update second NSC (nsc->nsc2)"
+
+	local nsc_yaml=$yamld/nsc.yaml
+	if test -n "$NSM_VLAN" -a -z $NSM_NO_VLAN_MECH; then
+	        nsc_yaml=$yamld/nsc-vlan.yaml
+	fi
+
+	sed -i -e "s|name: nsc|name: $NSM_NSC_NAME|" ${nsc_yaml}
+	sed -i -e "s|app: nsc|app: $NSM_NSC_NAME|" ${nsc_yaml}
+}
+
+cmd_tcase_set_affinity_second_nsc() {
+	NSM_NSC_NAME=nsc2
+	cmd_tcase_set_affinity_nsc
+}
+
+cmd_tcase_add_bird_second_nsc() {
+	test -n "$TEST_GW4_CIDDR_PREFIX" || tdie "TEST_GW4_CIDDR_PREFIX not set"
+	test -n "$TEST_GW6_CIDDR_PREFIX" || tdie "TEST_GW6_CIDDR_PREFIX not set"
+	# Note: because the second and the first set of NSCs are separated through VLAN, there's not much point changing the IPs...
+	if test -n "$TEST_USE_DIFFERENT_CIDDR"; then
+		TEST_GW4_CIDDR_PREFIX=$(echo "$TEST_GW4_CIDDR_PREFIX"|sed -e "s|\([0-9]\+\).\([0-9]\+\).[0-9]\+.\([0-9]\+\)|\1.\2.101.\3|")
+		TEST_GW6_CIDDR_PREFIX="fe80::abba/64"
+	fi
+
+	cmd_tcase_add_bird_nsc
+}
+
+cmd_tcase_update_second_nse() {
+	test -n "$NSM_NSE" || tdie "NSM_NSE not set"
+	NSM_NSE_NAME=nse2
+	tcase "Update second NSE (nse->nse2)"
+
+	sed -i -e "s|name: nse|name: $NSM_NSE_NAME|" $yamld/nse-$NSM_NSE.yaml
+	sed -i -e "s|app: nse|app: $NSM_NSE_NAME|" $yamld/nse-$NSM_NSE.yaml
+}
+
+cmd_tcase_config_second_nse() {
+	test -n "$NSM_NSE" || tdie "NSM_NSE not set"
+	test -n "$NSM_BASE_INTERFACE" || tdie "NSM base interface not set"
+	test -n "$NSM_VLAN_ID" || tdie "NSM VLAN ID not set"
+	test -n "$TEST_GW4_CIDDR_PREFIX" || tdie "TEST_GW4_CIDDR_PREFIX not set"
+	test -n "$TEST_GW6_CIDDR_PREFIX" || tdie "TEST_GW6_CIDDR_PREFIX not set"
+	test -n "$TEST_NET_CIDDR_PREFIX" || tdie "TEST_NET_CIDDR_PREFIX not set"
+
+	let "NSM_VLAN_ID=$NSM_VLAN_ID + 1"
+	# Note: because the second and the first gateway PODs are separated through VLAN, there's not much point changing the IPs...
+	if test -n "$TEST_USE_DIFFERENT_CIDDR"; then
+		TEST_GW4_CIDDR_PREFIX=$(echo "$TEST_GW4_CIDDR_PREFIX"|sed -e "s|\([0-9]\+\).\([0-9]\+\).[0-9]\+.\([0-9]\+\)|\1.\2.101.\3|")
+		TEST_NET_CIDDR_PREFIX=$(echo "$TEST_NET_CIDDR_PREFIX"|sed -e "s|\([0-9]\+\).\([0-9]\+\).[0-9]\+.\([0-9]\+\)|\1.\2.101.\3|")
+		TEST_GW6_CIDDR_PREFIX="fe80::abba/64"
+	fi
+	NSM_SERVICE_NAME=icmp-responder2
+
+	cmd_tcase_config_nse
+}
+
+cmd_tcase_start_second_gateway_with_bird() {
+	test -n "$NSM_BASE_INTERFACE" || tdie "NSM base interface not set"
+	# name multus uses to create the interface in GW POD
+	test -n "$TEST_INTERFACE" || TEST_INTERFACE="vlan0"
+	# address(es) multus *should* assigns to the interface it creates
+	test -n "$TEST_GW4_CIDDR_PREFIX" || tdie "TEST_GW4_CIDDR_PREFIX not set"
+	test -n "$TEST_GW6_CIDDR_PREFIX" || tdie "TEST_GW6_CIDDR_PREFIX not set"
+
+	# name of the network-attachment-definition to be used to create the interface
+	NAD_NAME="vlan-conf2"
+	# address(es) multus will assigns to the interface it creates
+	# Note: because the second and the first set of NSCs are separated through VLAN, there's not much point changing the IPs...
+	if test -n "$TEST_USE_DIFFERENT_CIDDR"; then
+		TEST_GW4_CIDDR_PREFIX=$(echo "$TEST_GW4_CIDDR_PREFIX"|sed -e "s|\([0-9]\+\).\([0-9]\+\).[0-9]\+.\([0-9]\+\)|\1.\2.101.\3|")
+		TEST_GW6_CIDDR_PREFIX="fe80::abba/64"
+	fi
+	TEST_GW_NAME=gateway2
+
+	cmd_tcase_start_gateway_with_bird
+}
+
+cmd_tcase_start_second_nsc_nse() {
+	test -n "$NSM_NSE" || tdie "NSM_NSE not set"
+	NSM_SERVICE_NAME=icmp-responder2
+	NSM_NSC_NAME=nsc2
+	NSM_NSE_NAME=nse2
+
+	cmd_tcase_start_nsc_nse
+}
+
+cmd_tcase_check_second_ext_interfaces_ping() {
+	NSM_NSC_NAME=nsc2
+	TEST_GW_NAME=gateway2
+
+	cmd_tcase_check_ext_interfaces_ping
+}
+
+#--------------------------------------------------------------------------------------
+
+# TODO: NSE should support reserving an array of IPs (IPAM)
+cmd_tcase_start_ecfe_gateways_with_bird() {
+	test -n "$NSM_BASE_INTERFACE" || tdie "NSM base interface not set"
+	# name multus uses to create the interface in GW POD
+	test -n "$TEST_INTERFACE" || TEST_INTERFACE="vlan0"
+	# address(es) multus *should* assigns to the interface it creates
+	test -n "$TEST_GW4_CIDDR_PREFIX" || tdie "TEST_GW4_CIDDR_PREFIX not set"
+	test -n "$TEST_GW6_CIDDR_PREFIX" || tdie "TEST_GW6_CIDDR_PREFIX not set"
+
+	# deploy first gateway on vm-003
+	# name of the network-attachment-definition to be used to create the interface
+	NAD_NAME="vlan-conf"
+	TEST_GW_BIRD_CONF=/etc/bird/bird-gw-ecfe.conf
+	TEST_GW_NAME=gateway1
+	TEST_GW_HOST=vm-003
+	cmd_tcase_start_gateway_with_bird
+
+	# address(es) multus will assigns to the interface it creates
+	local num4=$(echo "$TEST_GW4_CIDDR_PREFIX"|grep -oE "[0-9]+.[0-9]+.[0-9]+.[0-9]+"|grep -oE "[0-9]+$")
+	let "num4=$num4 + 1"
+	local num6=$(echo "$TEST_GW6_CIDDR_PREFIX"|grep -oE "[a-z0-9]+\:\:[a-z0-9]+"|grep -oE "[a-z0-9]+$")
+	let "num6=0x$num6 + 0x1"
+
+	# deploy first gateway on vm-005 (or on vm-001)
+	TEST_GW_HOST=vm-001
+	if test -n "$FIRST_WORKER" -a $FIRST_WORKER -ge 2; then
+		TEST_GW_HOST=vm-005
+	fi
+	TEST_GW4_CIDDR_PREFIX=$(echo "$TEST_GW4_CIDDR_PREFIX"|sed -e "s|\([0-9]\+\).\([0-9]\+\).\([0-9]\+\).[0-9]\+|\1.\2.\3.$num4|")
+	TEST_GW6_CIDDR_PREFIX=$(echo "$TEST_GW6_CIDDR_PREFIX"|sed -e "s|::\([a-z0-9]\+\)|::$(printf "%x" $num6)|")
+	TEST_GW_NAME=gateway2
+	# Configure "VRRP" IPs on first GW (acting as default gw on NSCs)
+	TEST_GW_CONF_EXTRA_IPS="9.9.9.9/32 9000::9/128"
+	tlog "$TEST_GW_NAME; host \"VRRP\" IPs ($TEST_GW_CONF_EXTRA_IPS)"
+	cmd_tcase_start_gateway_with_bird	
+}
+
+cmd_tcase_add_ecfe_bird_nsc() {
+	test -n "$TEST_GW4_CIDDR_PREFIX" || tdie "TEST_GW4_CIDDR_PREFIX not set"
+	test -n "$TEST_GW6_CIDDR_PREFIX" || tdie "TEST_GW6_CIDDR_PREFIX not set"
+	TEST_NSC_BIRD_CONF=/etc/bird/bird-fe-ecfe.conf
+
+	cmd_tcase_add_bird_nsc
+}
+
+cmd_tcase_check_ext_interfaces_ecfe() {
+	NSM_NSC_NAME=nsc
+	TEST_GW_NAME=gateway1
+	cmd_tcase_check_ext_interfaces
+
+	TEST_GW_NAME=gateway2
+	# this GW hosts the "VRRP" IPs
+	cmd_tcase_check_ext_interfaces_ping
+}
