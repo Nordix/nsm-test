@@ -13,6 +13,13 @@ cd nsm-api
 git check-out vlan-forwarder
 go build ./...
 ```
+- Clone and build nsm-sdk;
+```
+git clone git@github.com:Nordix/nsm-sdk.git
+cd nsm-sdk
+git check-out vlan-forwarder
+go build ./...
+```
 - Clone nsm-sdk-kernel;
 ```
 git clone git@github.com:Nordix/nsm-sdk-kernel.git
@@ -63,6 +70,7 @@ For building the generic NSE add the replace section to go.mod file (`cmd/nsm-ns
 ```
 replace (
   github.com/networkservicemesh/sdk-kernel => /home/ljkiraly/work/code/src/github.com/Nordix/nsm-sdk-kernel
+  github.com/networkservicemesh/sdk-kernel => /home/ljkiraly/work/code/src/github.com/Nordix/nsm-sdk
   github.com/networkservicemesh/api => /home/ljkiraly/work/code/src/github.com/Nordix/nsm-api
 )
 ```
@@ -71,7 +79,7 @@ Now the build can be done using local API and SDK;
 
 ```
 ./build.sh go
-./build.sh image --tag=registry.nordix.org/cloud-native/nsm/nse-generic:vlan-0.2
+./build.sh image --tag=registry.nordix.org/cloud-native/nsm/nse-vlan:latest
 ```
 
 ## NSC with VLAN Mechanism Support
@@ -117,9 +125,7 @@ docker build --target=runtime --tag=registry.nordix.org/cloud-native/nsm/cmd-nsc
 
 Upload to the xcluster local registry if needed;
 ```
-xtag=vlan-0.2
-images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/nse-generic:$xtag
-for x in forwarder-vlan cmd-nsc; do
+for x in forwarder-vlan cmd-nsc nse-vlan; do
 images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/$x:latest
 done
 ```
