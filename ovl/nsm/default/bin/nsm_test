@@ -150,6 +150,14 @@ cmd_tcase_start_forwarder() {
 	test_daemonset forwarder-$NSM_FORWARDER 30
 }
 
+cmd_tcase_start_nsc_nse_trench() {
+	tcase "Start the nsc and nse for second trench"
+	$kubectl apply -f $yamld/nse-vlan.yaml
+	test_deployment nsm-nse 60
+	$kubectl apply -f $yamld/nsc2-vlan.yaml
+	test_deployment nsm-nsc 60
+}
+
 cmd_tcase_start_nsc_nse() {
 	test -n "$NSM_NSE" || NSM_NSE=icmp-responder
 	test -n "$NSM_SERVICE_NAME" || NSM_SERVICE_NAME=icmp-responder
@@ -268,6 +276,32 @@ cmd_tcase_ping_interfaces_vlan() {
 	fi
     done
 }
+
+cmd_tcase_check_interfaces_vlan_trench() {
+	tcase "Check VLAN interfaces second trench"
+	mkdir -p $tmp
+	local pod iface inet inet6
+
+	for pod in $(kubectl get pods -l app=nsm-nsc -o name); do
+	    tmp_file=ip-$(basename $pod)
+	    tex kubectl exec $pod -- ip address show nsm-1 > $tmp/$tmp_file || tdie $pod
+	    inet=$(grep -oE '172\.10\.0\.[0-9]+' $tmp/$tmp_file | head -1)
+	    test -n "$inet" || tdie "No IPv4 address assigned"
+	    inet6=$(awk '/inet6/{print $2}' $tmp/$tmp_file | grep '100:')
+	    test -n "$inet6" || tdie "No IPv6 address assigned"
+	    tex kubectl exec $pod -- ip route show 172.10.0.0/24 > $tmp/$tmp_file
+	    route=$(cat $tmp/$tmp_file)
+	    vlanconf=$(kubectl exec $pod -- tail -1 /proc/net/vlan/config)
+	    test "$vlanconf" = "nsm-1          | 200  | eth2" || tdie "Faulty vlan configuration"
+	    tlog "NSC $pod; nsm-1, $inet, $inet6"
+	    tlog "        Route: $route"
+	    tlog "        ---------------------------------"
+	    tlog "        Vlan Config"
+	    tlog "        INTERFACE | VLANID | BASE"
+	    tlog "        $vlanconf"
+	done
+}
+
 cmd_tcase_check_interfaces_vlan() {
 	tcase "Check VLAN interfaces"
 	mkdir -p $tmp
@@ -277,10 +311,13 @@ cmd_tcase_check_interfaces_vlan() {
 	    tmp_file=ip-$(basename $pod)
 	    tex kubectl exec $pod -- ip address show nsm-1 > $tmp/$tmp_file || tdie $pod
 	    inet=$(grep -oE '169\.254\.0\.[0-9]+' $tmp/$tmp_file | head -1)
+	    test -n "$inet" || tdie "No IPv4 address assigned"
 	    inet6=$(awk '/inet6/{print $2}' $tmp/$tmp_file | grep '100:')
+	    test -n "$inet6" || tdie "No IPv6 address assigned"
 	    tex kubectl exec $pod -- ip route show 169.254.0.0/24 > $tmp/$tmp_file
 	    route=$(cat $tmp/$tmp_file)
 	    vlanconf=$(kubectl exec $pod -- tail -1 /proc/net/vlan/config)
+	    test "$vlanconf" = "nsm-1          | 100  | eth2" || tdie "Faulty vlan configuration"
 	    tlog "NSC $pod; nsm-1, $inet, $inet6"
 	    tlog "        Route: $route"
 	    tlog "        ---------------------------------"

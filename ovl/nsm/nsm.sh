@@ -167,6 +167,8 @@ test_vlan() {
 	otc 1 start_nsc_nse
 	otc 1 check_interfaces_vlan
 	otc 1 ping_interfaces_vlan
+	otc 1 start_nsc_nse_trench
+	otc 1 check_interfaces_vlan_trench
 	xcluster_stop
 	unset xcluster_NSM_VLAN
 	unset xcluster_NSM_NSE
