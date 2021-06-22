@@ -17,14 +17,14 @@ go build ./...
 ```
 git clone git@github.com:Nordix/nsm-sdk.git
 cd nsm-sdk
-git check-out vlan-forwarder
+git checkout vlan-forwarder
 go build ./...
 ```
 - Clone nsm-sdk-kernel;
 ```
 git clone git@github.com:Nordix/nsm-sdk-kernel.git
 cd nsm-sdk-kernel
-git check-out vlan-forwarder
+git checkout vlan-forwarder
 ```
 
 To use local nsm-api add a "replace" section in go.mod, example;
