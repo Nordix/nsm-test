@@ -70,7 +70,7 @@ For building the generic NSE add the replace section to go.mod file (`cmd/nsm-ns
 ```
 replace (
   github.com/networkservicemesh/sdk-kernel => /home/ljkiraly/work/code/src/github.com/Nordix/nsm-sdk-kernel
-  github.com/networkservicemesh/sdk-kernel => /home/ljkiraly/work/code/src/github.com/Nordix/nsm-sdk
+  github.com/networkservicemesh/sdk => /home/ljkiraly/work/code/src/github.com/Nordix/nsm-sdk
   github.com/networkservicemesh/api => /home/ljkiraly/work/code/src/github.com/Nordix/nsm-api
 )
 ```
@@ -89,12 +89,16 @@ git clone git@github.com:Nordix/nsm-cmd-nsc.git
 cd nsm-cmd-nsc
 git checkout vlan-forwarder
 ```
-Create a local directory and clone the api and sdk locally or from Nordix. Example;
+Create a local directory and clone the api and sdk locally or from Nordix. Check out the *vlan-forwarder* branch in each repository. Example;
 ```
 mkdir local
 cd local
 git clone -l ~/work/code/src/github.com/Nordix/nsm-api
 git clone -l ~/work/code/src/github.com/Nordix/nsm-sdk-kernel
+cd nsm-api
+git checkout vlan-forwarder
+cd ../nsm-sdk-kernel
+git checkout vlan-forwarder
 ```
 
 Add this replace section to go.mod file;
