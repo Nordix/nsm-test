@@ -208,13 +208,13 @@ cmd_tcase_check_interfaces() {
 	local pod iface inet
 
 	pod=$(get_pod app=nsc)
-	tex kubectl exec $pod -- ifconfig | grep -B1 169.254. > $tmp/nsc || tdie NSC
+	tex kubectl exec $pod -- ifconfig | grep -B1 169.254. > $tmp/nsc || tdie NSC:$pod
 	iface=$(head -1 $tmp/nsc | cut -d ' ' -f1)
 	inet=$(grep -oE '169\.254\.0\.[0-9]+' $tmp/nsc | sed -n 1p)
 	tlog "NSC; $iface, $inet"
 
 	pod=$(get_pod app=nse)
-	tex kubectl exec $pod -- ifconfig | grep -B1 169.254. > $tmp/nse || tdie NSE
+	tex kubectl exec $pod -- ifconfig | grep -B1 169.254. > $tmp/nse || tdie NSE:$pod
 	iface=$(head -1 $tmp/nse | cut -d ' ' -f1)
 	inet=$(grep -oE '169\.254\.0\.[0-9]+' $tmp/nse | sed -n 1p)
 	tlog "NSE; $iface, $inet"
@@ -313,11 +313,11 @@ cmd_tcase_check_interfaces_vlan() {
 	    inet=$(grep -oE '169\.254\.0\.[0-9]+' $tmp/$tmp_file | head -1)
 	    test -n "$inet" || tdie "No IPv4 address assigned"
 	    inet6=$(awk '/inet6/{print $2}' $tmp/$tmp_file | grep '100:')
-	    test -n "$inet6" || tdie "No IPv6 address assigned"
-	    tex kubectl exec $pod -- ip route show 169.254.0.0/24 > $tmp/$tmp_file
+	    test -n "$inet6" -o "$NSM_FORWARDER" = "generic-vlan" || tdie "No IPv6 address assigned ($NSM_FORWARDER)"
+		tex kubectl exec $pod -- ip route show 169.254.0.0/24 > $tmp/$tmp_file
 	    route=$(cat $tmp/$tmp_file)
 	    vlanconf=$(kubectl exec $pod -- tail -1 /proc/net/vlan/config)
-	    test "$vlanconf" = "nsm-1          | 100  | eth2" || tdie "Faulty vlan configuration"
+	    test "$vlanconf" = "nsm-1          | 100  | eth2" -o "$NSM_FORWARDER" = "generic-vlan"|| tdie "Faulty vlan configuration"
 	    tlog "NSC $pod; nsm-1, $inet, $inet6"
 	    tlog "        Route: $route"
 	    tlog "        ---------------------------------"
