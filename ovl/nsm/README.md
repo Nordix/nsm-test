@@ -116,8 +116,7 @@ done
 Additional images for vlan forwarder test;
 ```
 images lreg_cache registry.nordix.org/cloud-native/nsm/forwarder-vlan:latest
-xtag=vlan-0.2
-images lreg_cache registry.nordix.org/cloud-native/nsm/nse-generic:$xtag
+images lreg_cache registry.nordix.org/cloud-native/nsm/nse-vlan:latest
 ```
 
 Local built image;
