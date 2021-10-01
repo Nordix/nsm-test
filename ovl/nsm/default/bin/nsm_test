@@ -257,6 +257,19 @@ cmd_tcase_check_interfaces_ipvlan() {
 	done
 }
 
+cmd_tcase_check_vlan() {
+    tcase "Ping VLAN address"
+	mkdir -p $tmp
+    for pod in $(kubectl get pods -l app=nsc -o name); do
+        tmp_file=ip-$(basename $pod)
+        tex kubectl exec $pod -- ip address show nsm-1 > $tmp/$tmp_file || tdie $pod
+        inet=$(grep -oE '172\.10\.0\.[0-9]+' $tmp/$tmp_file | head -1|cut -f1 -d/)
+		inet6=$(awk '/inet6/{print $2}' $tmp/$tmp_file | grep '100:' | cut -f1 -d/)
+		ping -c 1 -W1 -t 1 $inet || die "ping $inet"
+		ping6 -c1 -W1 -t 1 $inet6 || die "ping $inet6"
+    done
+}
+
 cmd_tcase_ping_interfaces_vlan() {
     tcase "Ping VLAN interface addresses"
     mkdir -p $tmp

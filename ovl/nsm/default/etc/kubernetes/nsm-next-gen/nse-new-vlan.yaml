@@ -15,11 +15,14 @@ spec:
         app: nse
     spec:
       nodeSelector:
-        kubernetes.io/hostname: vm-003
+        kubernetes.io/hostname: vm-004
       containers:
         - name: nse
-          image: registry.nordix.org/cloud-native/nsm/nse-vlan:latest
+          image: registry.nordix.org/cloud-native/nsm/cmd-nse-vlan:vlansup
           imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5003
+              hostPort: 5003
           env:
             - name: SPIFFE_ENDPOINT_SOCKET
               value: unix:///run/spire/sockets/agent.sock
@@ -28,19 +31,23 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: NSM_CONNECT_TO
-              value: unix:///var/lib/networkservicemesh/nsm.io.sock
+              value: "nsm-registry-svc:5002"
             - name: NSM_SERVICE_NAMES
               value: "icmp-responder"
             - name: NSM_CIDR_PREFIX
-              value: "169.254.0.0/24"
+              value: "172.10.0.0/24"
             - name: NSM_IPV6_PREFIX
-              value: "100:100::/64"
+              value: "100:200::/64"
             - name: NSM_POINT2POINT
               value: "False"
             - name: NSM_VLAN_BASE_IFNAME
-              value: "eth2"
+              value: ""
             - name: NSM_VLAN_ID
               value: "100"
+            - name: NSM_REGISTER_SERVICE
+              value: "True"
+            - name: NSM_LISTEN_ON
+              value: "tcp://:5003"
           volumeMounts:
             - name: spire-agent-socket
               mountPath: /run/spire/sockets

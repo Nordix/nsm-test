@@ -175,6 +175,17 @@ test_vlan() {
 	unset xcluster_NSM_FORWARDER
 }
 
+test_vpp_vlan() {
+	tlog "=== nsm; VPP with VLAN SUPPORT"
+	export xcluster_NSM_FORWARDER=vpp
+	export xcluster_NSM_NSE=new-vlan
+	test_start
+	otc 1 start_nsc_nse
+	otc 201 check_vlan
+	unset xcluster_NSM_NSE
+        unset xcluster_NSM_FORWARDER
+}
+
 test_vlan_generic() {
 	tlog "=== nsm; GENERIC VLAN"
 	export xcluster_NSM_FORWARDER=generic-vlan
