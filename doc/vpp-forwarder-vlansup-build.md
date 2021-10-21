@@ -154,9 +154,9 @@ images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-nse-vla
 
 The NSE in this setup belong to control plain of NSM and playing multiple roles;
 
-- The NSE as a registry regiser itself directly to the registry service. The URL of registry service can be set by `NSM_CONNECT_TO` environment variable. Example; "nsm-registry-svc:5002"
+- The NSE as a registry - regiser itself directly to the registry service. The URL of registry service can be set by `NSM_CONNECT_TO` environment variable. Example; "nsm-registry-svc:5002"
 
-- The NSE as nsmgr and forwarder replies directly to the connection requests coming from local or remote forwarders. The URL (with port) to be listen on can be set by `NSM_LISTEN_ON` environment variable. Example; "tcp://:5003" The port used in this URL must be set in the manifest of the NSE pod. Example:
+- The NSE as nsmgr and forwarder - replies directly to the connection requests coming from local or remote forwarders. The URL (with port) to be listen on can be set by `NSM_LISTEN_ON` environment variable. Example; "tcp://:5003" The port used in this URL must be set in the manifest of the NSE pod. Example:
 
 ```yaml
 apiVersion: apps/v1
@@ -175,7 +175,7 @@ spec:
               ...     
 ```
 
-- The NSE as IPAM provider can be configured with the `NSM_CIDR_PREFIX` and `NSM_IPV6_PREFIX` environment variables.
+- The NSE as IPAM provider - can be configured with the `NSM_CIDR_PREFIX` and `NSM_IPV6_PREFIX` environment variables.
 
-- The NSE as service provider provides multiple services for NSC to connect to. The list of supported services can be set by `NSM_SERVICES` environment variable. Example; "finance-bridge@service-domain.2: { vlan: 100 }, finance-bridge@service-domain.2: { vlan: 200 }, shadow-gw@service-domain.3: { vlan: 1200 }" The service specified by "finance-bridge@service-domain.2: { vlan: 100 }" in this example has the service name "finance-bridge" and the network service domain "service-domain.2".
-NSC can request for a service using the service name by using this service name in its `NSM_NETWORK_SERVICES` environment variable ("kernel://finance-bridge/nsm-1"). The forwarder can select a base interface for the network service domain based on its mapping (see #Configure-VPP-Forwarder)
+- The NSE as service provider - provides multiple services for NSC to connect to. The list of supported services can be set by `NSM_SERVICES` environment variable. Example; "finance-bridge@service-domain.2: { vlan: 100 }, finance-bridge@service-domain.2: { vlan: 200 }, shadow-gw@service-domain.3: { vlan: 1200 }" The service specified by "finance-bridge@service-domain.2: { vlan: 100 }" in this example has the service name "finance-bridge" and the network service domain "service-domain.2".
+NSC can request for a service using the service name in its `NSM_NETWORK_SERVICES` environment variable (Example; "kernel://finance-bridge/nsm-1"). The forwarder can select a base interface for the network service domain based on its mapping (see section [Configure VPP Forwarder](https://github.com/Nordix/nsm-test/blob/master/doc/vpp-forwarder-vlansup-build.md#configure-vpp-forwarder))
