@@ -163,6 +163,7 @@ cmd_tcase_start_nsc_nse() {
 	test -n "$NSM_SERVICE_NAME" || NSM_SERVICE_NAME=icmp-responder
 	test -n "$NSM_NSE_NAME" || NSM_NSE_NAME=nse
 	test -n "$NSM_NSC_NAME" || NSM_NSC_NAME=nsc
+	tlog "Preparing NSE ($NSM_NSE, name:$NSM_NSE_NAME) service:$NSM_SERVICE_NAME"
 	if test -n "$NSE_HOST"; then
 		sed -i -e "s,vm-003,$NSE_HOST," $yamld/nse-$NSM_NSE.yaml
 	else
@@ -175,7 +176,11 @@ cmd_tcase_start_nsc_nse() {
 	        tlog "NSC; using vlan mechanism"
 	        nsc_yaml=$yamld/nsc-vlan.yaml
 	fi
-	sed -i -e "s,//[0-9a-zA-Z_\.\-]\+/nsm-1,//$NSM_SERVICE_NAME/nsm-1," ${nsc_yaml}
+	if test "$NSM_NSE" = "new-vlan"; then
+	    sed -i -e "/^\( *\)- name: NSM_NETWORK_SERVICES/{n;s|value:.*|value: \"kernel://$NSM_SERVICE_NAME/nsm-1\"|;}" ${nsc_yaml}
+	else
+	    sed -i -e "s,//[0-9a-zA-Z_\.\-]\+/nsm-1,//$NSM_SERVICE_NAME/nsm-1," ${nsc_yaml}
+	fi
 	if test -n "$NSM_SELECT_FORWARDER"; then
 		# alter service label in nsc config
 		tlog "NSC; prefer forwarder-$NSM_SELECT_FORWARDER"
@@ -195,7 +200,7 @@ cmd_tcase_start_nsc_nse() {
 			sed -i -e "s,^\( *\)env:,&\n\1${indent}- name: NSE_LABELS\n\1${indent}${indent}value: forwarder:forwarder-$NSM_NSE_SELECT_FORWARDER," $yamld/nse-$NSM_NSE.yaml
 		fi
 	fi
-	tcase "Start the nsc and nse-$NSM_NSE on $NSE_HOST"
+	tcase "Start the nsc($nsc_yaml) and nse-$NSM_NSE on $NSE_HOST"
 	$kubectl apply -f $yamld/nse-$NSM_NSE.yaml
 	test_deployment $NSM_NSE_NAME 60
 	$kubectl apply -f ${nsc_yaml}
@@ -257,21 +262,14 @@ cmd_tcase_check_interfaces_ipvlan() {
 	done
 }
 
-cmd_tcase_check_vlan() {
-    tcase "Ping VLAN address"
-	mkdir -p $tmp
-    for pod in $(kubectl get pods -l app=nsc -o name); do
-        tmp_file=ip-$(basename $pod)
-        tex kubectl exec $pod -- ip address show nsm-1 > $tmp/$tmp_file || tdie $pod
-        inet=$(grep -oE '172\.10\.0\.[0-9]+' $tmp/$tmp_file | head -1|cut -f1 -d/)
-		inet6=$(awk '/inet6/{print $2}' $tmp/$tmp_file | grep '100:' | cut -f1 -d/)
-		ping -c 1 -W1 -t 1 $inet || die "ping $inet"
-		ping6 -c1 -W1 -t 1 $inet6 || die "ping $inet6"
-    done
-}
-
 cmd_tcase_ping_interfaces_vlan() {
     tcase "Ping VLAN interface addresses"
+    if test "$NSM_NSE" = "new-vlan"; then
+	ip_regexp='172\.10\.0\.[0-9]+'
+    else
+	ip_regexp='169\.254\.0\.[0-9]+'
+    fi
+
     mkdir -p $tmp
     local pod iface inet inet6
 
@@ -279,7 +277,7 @@ cmd_tcase_ping_interfaces_vlan() {
 	if test -z "$inet6"; then
 	    tmp_file=ip-$(basename $pod)
 	    tex kubectl exec $pod -- ip address show nsm-1 > $tmp/$tmp_file || tdie $pod
-	    inet=$(grep -oE '169\.254\.0\.[0-9]+' $tmp/$tmp_file | head -1|cut -f1 -d/)
+	    inet=$(grep -oE ${ip_regexp} $tmp/$tmp_file | head -1|cut -f1 -d/)
 	    inet6=$(awk '/inet6/{print $2}' $tmp/$tmp_file | grep '100:' | cut -f1 -d/)
 	else
 	    tlog "Ping $inet6 from NSC ($pod)"

@@ -1,0 +1,16 @@
+physicalFunctions:
+  0000:04:00.0:
+    pfKernelDriver: pf-driver
+    vfKernelDriver: vf-driver
+    capabilities:
+      - default
+    serviceDomains:
+      - service.domain.1
+  0000:00:05.0:
+    pfKernelDriver: pf-driver
+    vfKernelDriver: vf-driver
+    capabilities:
+      - default
+    serviceDomains:
+      - service.domain.1
+      - service.domain.2

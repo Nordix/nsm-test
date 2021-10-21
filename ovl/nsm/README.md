@@ -71,37 +71,44 @@ Setup NSM and start NSE and 10xNSC as a deployment with `replicas:
 L2 network. Interfaces are checked and ping from the NSE to all 10
 NSC's is tested.
 
-### VLAN test
+### VLAN tests
+
+#### VPP forwarder with vlan support
+
+Setup NSM and start two NSC. The NSE is started on vm-003.
+The address of first NSC is pinged from second NSC namespace
+
+```bash
+log=/tmp/$USER/xcluster.log
+xcadmin k8s_test nsm vpp_vlan > $log
+```
+
+#### Vlan forwarder
 
 Setup NSM and start a NSC on vm-002 and a NSE on vm-003. Interfaces are checked
 on NSC and the NSE. On NSE should not be injected any interface.
 
-#### Using generic forwarder;
-
-```
-log=/tmp/$USER/xcluster.log
-xcadmin k8s_test nsm vlan_generic > $log
-```
-
-#### Vlan forwarder;
-
-```
+```bash
 log=/tmp/$USER/xcluster.log
 xcadmin k8s_test nsm vlan > $log
 ```
 
-#### To check the interfaces and vlanID manually;
+##### To check the interfaces and vlanID manually
 
-```
+```bash
 for pod in $(kubectl get pods -l app=nsc -o name); do kubectl exec $pod -- ip address show nsm-1 > ~/tmp_file; inet=$(grep -oE '169\.254\.0\.[0-9]+' ~/tmp_file); echo "NSC $pod; nsm-1, $inet"; rm ~/tmp_file; done
 for pod in $(kubectl get pods -l app=nsc -o name); do echo "NSC $pod"; kubectl exec $pod -- tail -1 /proc/net/vlan/config; done
 ```
 
+#### VLAN using generic forwarder
+
+OBSOLETE
 
 ## Load the local registry
 
 Refresh from registry.nordix.org;
-```
+
+```bash
 images lreg_missingimages default/
 for x in cmd-nsmgr cmd-nsc cmd-registry-memory cmd-nse-icmp-responder \
   cmd-forwarder-vpp; do
@@ -113,23 +120,28 @@ for x in wait-for-it:latest \
 done
 ```
 
-Additional images for vlan forwarder test;
-```
+Additional images for vlan tests;
+
+```bash
 images lreg_cache registry.nordix.org/cloud-native/nsm/forwarder-vlan:latest
 images lreg_cache registry.nordix.org/cloud-native/nsm/nse-vlan:latest
+images lreg_cache registry.nordix.org/cloud-native/nsm/cmd-nse-vlan:vlansup
 ```
 
 Local built image;
-```
+
+```bash
 x=cmd-nsc
 cd $GOPATH/src/github.com/networkservicemesh/$x
 docker build --target=runtime --tag=registry.nordix.org/cloud-native/nsm/$x:latest .
 images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/$x:latest
 ```
+
 For building vlan forwarder and required components see [Build nsm components for vlan forwarder using vlan mechanism](../../doc/vlan-forwarder-build.md)
 
+For building vlan forwarder and required components see [Build nsm components for vpp forwarder supporting remote vlan mechanism](../../doc/vpp-forwarder-vlansup-build.md)
 
-## Data plane (forwarder) selection 
+## Data plane (forwarder) selection
 
 Until upstream introduces support to select a forwarder when running with multiple forwarders, a temporary
 forwarder selection implementation can be used.

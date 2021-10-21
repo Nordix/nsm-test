@@ -179,22 +179,20 @@ test_vpp_vlan() {
 	tlog "=== nsm; VPP with VLAN SUPPORT"
 	export xcluster_NSM_FORWARDER=vpp
 	export xcluster_NSM_NSE=new-vlan
+	export xcluster_NSM_VLAN=true
+	export xcluster_NSM_SERVICE_NAME=finance-bridge
 	test_start
 	otc 1 start_nsc_nse
-	otc 201 check_vlan
+	otc 1 ping_interfaces_vlan
+	unset xcluster_NSM_SERVICE_NAME
+	unset xcluster_NSM_VLAN
 	unset xcluster_NSM_NSE
         unset xcluster_NSM_FORWARDER
 }
 
 test_vlan_generic() {
-	tlog "=== nsm; GENERIC VLAN"
-	export xcluster_NSM_FORWARDER=generic-vlan
-	export xcluster_NSM_NSE=generic
-	export xcluster_NSM_FORWARDER_CALLOUT=/bin/vlan-forwarder.sh
-	test_start
-	otc 1 start_nsc_nse
-	otc 1 check_interfaces_vlan
-	xcluster_stop
+    test_vlan
+    log "OBSOLETE; vlan_generic. Use; vlan"
 }
 
 test_bird_poc_nse() {
