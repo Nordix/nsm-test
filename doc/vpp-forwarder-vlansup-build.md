@@ -9,7 +9,7 @@ This description details the steps of building components locally from source us
 ```bash
 git clone git@github.com:Nordix/nsm-cmd-forwarder-vpp.git
 cd nsm-cmd-forwarder-vpp
-git check-out vlansup-dev
+git checkout vlansup-dev
 ```
 
 - Clone `nsm-api` and `nsm-sdk-kernel` from Nordix to `local` subdirectory and checkout the `vlansup-dev` development branch. Build these sources
@@ -21,12 +21,12 @@ cd local
 ```bash
 git clone git@github.com:Nordix/nsm-api.git
 cd nsm-api
-git check-out vlansup-dev
+git checkout vlansup-dev
 go build ./...
 cd ..
 git clone git@github.com:Nordix/nsm-sdk-kernel.git
 cd nsm-sdk-kernel
-git check-out vlansup-dev
+git checkout vlansup-dev
 go build ./...
 cd ..
 ```
@@ -36,7 +36,7 @@ cd ..
 ```bash
 git clone git@github.com:Nordix/nsm-sdk-vpp.git
 cd nsm-sdk-vpp
-git check-out vlansup-dev
+git checkout vlansup-dev
 ```
 
 - Modify the go.mod file for `nsm-sdk-vpp` to use `nsm-api` and `nsm-sdk-kernel` cloned locally. Build this source.
@@ -111,7 +111,7 @@ The path to the 'PCI to service domain' configuration file is set by `NSM_DOMAIN
 ```bash
 git clone git@github.com:Nordix/nsm-nse-generic.git
 cd nsm-nse-generic
-git check-out vlansup-dev
+git checkout vlansup-dev
 ```
 
 - Clone `nsm-api` and `nsm-sdk` from Nordix to `local` subdirectory and checkout the `vlansup-dev` development branch. Build these sources
@@ -119,12 +119,12 @@ git check-out vlansup-dev
 ```bash
 git clone git@github.com:Nordix/nsm-api.git
 cd nsm-api
-git check-out vlansup-dev
+git checkout vlansup-dev
 go build ./...
 cd ..
 git clone git@github.com:Nordix/nsm-sdk.git
 cd nsm-sdk
-git check-out vlansup-dev
+git checkout vlansup-dev
 go build ./...
 cd ..
 ```
