@@ -12,18 +12,10 @@ cd nsm-cmd-forwarder-vpp
 git checkout vlansup-dev
 ```
 
-- Clone `nsm-api` and `nsm-sdk-kernel` from Nordix to `local` subdirectory and checkout the `vlansup-dev` development branch. Build these sources
+- Clone `nsm-sdk-kernel` from Nordix to `local` subdirectory and checkout the `vlansup-dev` development branch. Build the source
 
 ```bash
 cd local
-```
-
-```bash
-git clone git@github.com:Nordix/nsm-api.git
-cd nsm-api
-git checkout vlansup-dev
-go build ./...
-cd ..
 git clone git@github.com:Nordix/nsm-sdk-kernel.git
 cd nsm-sdk-kernel
 git checkout vlansup-dev
@@ -39,13 +31,12 @@ cd nsm-sdk-vpp
 git checkout vlansup-dev
 ```
 
-- Modify the go.mod file for `nsm-sdk-vpp` to use `nsm-api` and `nsm-sdk-kernel` cloned locally. Build this source.
+- Modify the go.mod file for `nsm-sdk-vpp` to use `nsm-sdk-kernel` cloned locally. Build this source.
 
 ```go
 # slice of go.mod file
 replace (
   github.com/networkservicemesh/sdk-kernel => ../nsm-sdk-kernel
-  github.com/networkservicemesh/api => ../nsm-api
 )
 ```
 
@@ -60,22 +51,21 @@ cd ../..
 # slice of go.mod file
 replace (
   github.com/networkservicemesh/sdk-kernel => ./local/nsm-sdk-kernel
-  github.com/networkservicemesh/api => ./local/nsm-api
   github.com/networkservicemesh/sdk-vpp => ./local/nsm-sdk-vpp
 )
 ```
 
-The modification to support labels for forwarder selection is optional.
+To build the image run the following command:
 
 ```bash
 go build ./...
-docker build --tag registry.nordix.org/cloud-native/nsm/cmd-forwarder-vpp:fwsel0 .
+docker build --tag registry.nordix.org/cloud-native/nsm/cmd-forwarder-vpp:vlansup .
 ```
 
 - Upload to the local registry (optional)
 
 ```bash
-images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-forwarder-vpp:fwsel0
+images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-forwarder-vpp:vlansup
 ```
 
 ### Configure VPP Forwarder
@@ -114,30 +104,7 @@ cd nsm-nse-generic
 git checkout vlansup-dev
 ```
 
-- Clone `nsm-api` and `nsm-sdk` from Nordix to `local` subdirectory and checkout the `vlansup-dev` development branch. Build these sources
-
-```bash
-git clone git@github.com:Nordix/nsm-api.git
-cd nsm-api
-git checkout vlansup-dev
-go build ./...
-cd ..
-git clone git@github.com:Nordix/nsm-sdk.git
-cd nsm-sdk
-git checkout vlansup-dev
-go build ./...
-cd ..
-```
-
-- Modify the go.mod file for `nsm-nse-generic` to use the modules from `local` directory. Build the source and the docker image.
-
-```go
-# slice of go.mod file
-replace (
-  github.com/networkservicemesh/sdk => ./local/nsm-sdk
-  github.com/networkservicemesh/api => ./local/nsm-api
-)
-```
+- Build the source and the docker image.
 
 ```bash
 go build ./...

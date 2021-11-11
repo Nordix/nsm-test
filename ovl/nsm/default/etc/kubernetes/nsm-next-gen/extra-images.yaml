@@ -1,3 +1,7 @@
 	- image: registry.nordix.org/cloud-native/nsm/forwarder-generic:latest
 	- image: registry.nordix.org/cloud-native/nsm/nse-generic:latest
-        - image: registry.nordix.org/cloud-native/nsm/forwarder-vlan:latest
+  - image: registry.nordix.org/cloud-native/nsm/forwarder-vlan:latest
+	- image: registry.nordix.org/cloud-native/nsm/cmd-forwarder-vpp:vlansup
+	- image: registry.nordix.org/cloud-native/nsm/cmd-nsc:vlansup
+	- image: registry.nordix.org/cloud-native/nsm/cmd-nsmgr:vlansup
+	- image: registry.nordix.org/cloud-native/nsm/cmd-registry-memory:vlansup

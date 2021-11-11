@@ -125,7 +125,9 @@ Additional images for vlan tests;
 ```bash
 images lreg_cache registry.nordix.org/cloud-native/nsm/forwarder-vlan:latest
 images lreg_cache registry.nordix.org/cloud-native/nsm/nse-vlan:latest
-images lreg_cache registry.nordix.org/cloud-native/nsm/cmd-nse-vlan:vlansup
+for x in cmd-nsmgr cmd-nsc cmd-registry-memory cmd-forwarder-vpp cmd-nse-vlan; do
+  images lreg_cache registry.nordix.org/cloud-native/nsm/$x:vlansup
+done
 ```
 
 Local built image;
