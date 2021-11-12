@@ -35,7 +35,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: NSM_DOMAIN_CONFIG_FILE
-              value: /var/lib/networkservicemesh/pcitodomain.yaml
+              value: /var/lib/networkservicemesh/domaintodevice.yaml
             - name: NSM_LABELS
               value: forwarder:forwarder-vpp
           volumeMounts:
