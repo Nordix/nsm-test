@@ -4,13 +4,13 @@ This description details the steps of building components locally from source us
 
 ## Local SDK and API
 
-Clone nsm-api and nsm-sk-kernel from Nordix. The location of the local clone may be important for building the cloned project.
+Clone nsm-api and nsm-sdk-kernel from Nordix. The location of the local clone may be important for building the cloned project.
 
 - Clone and build nsm-api;
 ```
 git clone git@github.com:Nordix/nsm-api.git
 cd nsm-api
-git check-out vlan-forwarder
+git checkout vlan-forwarder
 go build ./...
 ```
 - Clone and build nsm-sdk;
