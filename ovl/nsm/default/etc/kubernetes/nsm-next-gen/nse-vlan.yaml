@@ -1,0 +1,59 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nsm-nse
+  labels:
+    app: nsm-nse
+spec:
+  selector:
+    matchLabels:
+      app: nsm-nse
+  template:
+    metadata:
+      labels:
+        app: nsm-nse
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: vm-003
+      containers:
+        - name: nsm-nse
+          image: registry.nordix.org/cloud-native/nsm/nse-vlan:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SPIFFE_ENDPOINT_SOCKET
+              value: unix:///run/spire/sockets/agent.sock
+            - name: NSM_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NSM_CONNECT_TO
+              value: unix:///var/lib/networkservicemesh/nsm.io.sock
+            - name: NSM_SERVICE_NAMES
+              value: "shadow-gw"
+            - name: NSM_CIDR_PREFIX
+              value: "172.10.0.0/24"
+            - name: NSM_IPV6_PREFIX
+              value: "100:200::/64"
+            - name: NSM_POINT2POINT
+              value: "False"
+            - name: NSM_VLAN_BASE_IFNAME
+              value: "eth2"
+            - name: NSM_VLAN_ID
+              value: "200"
+          volumeMounts:
+            - name: spire-agent-socket
+              mountPath: /run/spire/sockets
+              readOnly: true
+            - name: nsm-socket
+              mountPath: /var/lib/networkservicemesh
+              readOnly: false
+      volumes:
+        - name: spire-agent-socket
+          hostPath:
+            path: /run/spire/sockets
+            type: Directory
+        - name: nsm-socket
+          hostPath:
+            path: /var/lib/networkservicemesh
+            type: DirectoryOrCreate

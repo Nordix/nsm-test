@@ -10,7 +10,7 @@ Clone nsm-api and nsm-sk-kernel from Nordix. The location of the local clone may
 ```
 git clone git@github.com:Nordix/nsm-api.git
 cd nsm-api
-git check-out vlan-forwarder
+git checkout vlan-forwarder
 go build ./...
 ```
 - Clone and build nsm-sdk;
@@ -38,6 +38,13 @@ go build ./...
 ```
 
 ## Generic Vlan Forwarder
+
+- Clone nsm-forwarder-generic repositoyr from Nordix;
+```
+git clone git@github.com:Nordix/nsm-forwarder-generic.git
+cd nsm-forwarder-generic
+git checkout vlan-forwarder
+```
 
 For building the vlan forwarder also a replace section must be added to go.mod file (`cmd/nsm-forwarder-vlan/go.mod`), example;
 
