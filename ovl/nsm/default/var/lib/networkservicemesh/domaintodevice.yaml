@@ -1,9 +1,13 @@
 serviceDomains:
   service.domain.1:
-    interfaceName: eth1
+    interfaces:
+        - name: eth1
   service.domain.2:
-    interfaceName: eth2
+    interfaces:
+        - name: eth2
   service.domain.3:
-    interfaceName: eth3
+    interfaces:
+        - name: eth3
   service.domain.4:
-    interfaceName: eth4
+    interfaces:
+        - name: eth4

@@ -180,13 +180,17 @@ cmd_tcase_start_nsc_nse() {
 	local separator="\?"
 	local nsc_yaml=$yamld/nsc.yaml
 	if test -n "$NSM_VLAN" -a -z $NSM_NO_VLAN_MECH; then
-	        tlog "NSC; using vlan mechanism"
-	        nsc_yaml=$yamld/nsc-vlan.yaml
-	fi
-	if test "$NSM_NSE" = "new-vlan"; then
-		sed -i -e "s,:latest,:vlansup," ${nsc_yaml}
-		sed -i -e "/^\( *\)- name: NSM_NETWORK_SERVICES/{n;s|value:.*|value: \"kernel://$NSM_SERVICE_NAME/nsm-1\"|;}" ${nsc_yaml}
+		if test "$NSM_NSE" = "new-vlan"; then
+			tlog "NSC; using kernel mechanism to connect remote vlan"
+			nsc_yaml=$yamld/nsc-new-vlan.yaml
+		else
+			tlog "NSC; using vlan mechanism"
+			nsc_yaml=$yamld/nsc-vlan.yaml
+		fi
 	else
+		tlog "NSC; using kernel mechanism"
+	fi
+	if test "$NSM_NSE" != "new-vlan"; then
 	    sed -i -e "s,//[0-9a-zA-Z_\.\-]\+/nsm-1,//$NSM_SERVICE_NAME/nsm-1," ${nsc_yaml}
 	fi
 	if test -n "$NSM_SELECT_FORWARDER"; then
