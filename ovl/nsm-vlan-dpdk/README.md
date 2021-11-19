@@ -45,6 +45,7 @@ Check out things;
 # On a vm;
 cat /proc/cmdline
 grep Huge /proc/meminfo
+lspci
 pod=$(kubectl get pods -l app=forwarder-vpp -o name | head -1)
 kubectl exec -it $pod -- vppctl
 show dpdk version
