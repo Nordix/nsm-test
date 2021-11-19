@@ -27,7 +27,7 @@ spec:
             - name: NSE_CONNECT_TO
               value: unix:///var/lib/networkservicemesh/nsm.io.sock
             - name: NSM_SERVICES
-              value: "finance-bridge@service.domain.2: { vlan: 100 }"
+              value: "finance-bridge { vlan: 100; via: service.domain.2}"
             - name: NSM_CIDR_PREFIX
               value: "169.254.100.0/24"
             - name: NSM_IPV6_PREFIX

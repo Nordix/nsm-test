@@ -25,11 +25,11 @@ log=/tmp/$USER/xcluster.log   # (assumed to be set)
 ./nsm-vlan-dpdk.sh generate_manifests
 # Pre-load the local registry;
 for n in $(images lreg_missingimages .); do
-  xc lreg_cache $n
+  images lreg_cache $n
 done
 # Refresh local registry (when needed);
 for n in $(images getimages .); do
-  xc lreg_cache $n
+  images lreg_cache $n
 done
 ```
 
@@ -60,16 +60,17 @@ A mapping file domain->interfaces must be provided to the
 `forwarder-vpp` and passed in the `$NSM_DOMAIN_CONFIG_FILE` variable;
 
 ```
-serviceDomains:
-  service.domain.2:
-    interfaces:
-        - name: eth2
+interfaces:
+  - name: eth2
+    matches:
+       - labelSelector:
+           - via: service.domain.2
 ```
 
 The NSE must define a service using the domain and a vlan-tag;
 ```
     - name: NSM_SERVICES
-      value: "finance-bridge@service.domain.2: { vlan: 100 }"
+      value: "finance-bridge { vlan: 100; via: service.domain.2}"
 ```
 
 And finally an NSC must use the service;
