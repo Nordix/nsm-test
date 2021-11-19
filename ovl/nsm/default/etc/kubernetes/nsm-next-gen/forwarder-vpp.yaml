@@ -35,7 +35,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: NSM_DEVICE_SELECTOR_FILE
-              value: /var/lib/networkservicemesh/domaintodevice.yaml
+              value: /var/lib/networkservicemesh/device-selector.yaml
             - name: NSM_LABELS
               value: forwarder:forwarder-vpp
           volumeMounts:

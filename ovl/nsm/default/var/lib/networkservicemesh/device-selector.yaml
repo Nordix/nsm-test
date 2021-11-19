@@ -1,13 +1,9 @@
 ---
 interfaces:
-  - name: eth1
-    matches:
-       - labelSelector:
-           - via: gw0
   - name: eth2
     matches:
        - labelSelector:
-           - via: service.domain.2
+           - via: gw1
   - name: eth3
     matches:
        - labelSelector:

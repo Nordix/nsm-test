@@ -70,29 +70,27 @@ images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-forward
 
 ### Configure VPP Forwarder
 
-To use VLAN tagging a base interface must be specified. A new way of configuration of base interface is supported by mapping service domains to PCI addresses. The NSE configures the service domain and the forwarder selects the PCI interface based on this mapping.
+To use VLAN tagging a base interface must be specified. A new way of configuration of base interface is supported by mapping 'via' labels to interface names. The NSE configures the 'via' label and sends it in response to connection request to the forwarder. The forwarder selects the interface based on this label by mapping it to the interface name.
 
 ```yaml
-# sample DomainConfigFile used by forwarder-vpp
-physicalFunctions:
-  0000:04:00.0:
-    pfKernelDriver: pf-driver
-    vfKernelDriver: vf-driver
-    capabilities:
-      - default
-    serviceDomains:
-      - service.domain.1
-  0000:00:05.0:
-    pfKernelDriver: pf-driver
-    vfKernelDriver: vf-driver
-    capabilities:
-      - default
-    serviceDomains:
-      - service.domain.1
-      - service.domain.2
+# sample Device Selector File used by forwarder-vpp
+interfaces:
+  - name: eth2
+    matches:
+       - labelSelector:
+           - via: gw1
+  - name: eth3
+    matches:
+       - labelSelector:
+           - via: gw2
+  - name: eth4
+    matches:
+       - labelSelector:
+           - via: gw3
+
 ```
 
-The path to the 'PCI to service domain' configuration file is set by `NSM_DOMAIN_CONFIG_FILE` environment variable in VPP forwarder.
+The path to the 'Device Selector' configuration file is set by `NSM_DEVICE_SELECTOR_FILE` environment variable in VPP forwarder.
 
 ## Building NSE Element With Remote VLAN Mechanism Support
 
@@ -144,5 +142,5 @@ spec:
 
 - The NSE as IPAM provider - can be configured with the `NSM_CIDR_PREFIX` and `NSM_IPV6_PREFIX` environment variables.
 
-- The NSE as service provider - provides multiple services for NSC to connect to. The list of supported services can be set by `NSM_SERVICES` environment variable. Example; "finance-bridge@service-domain.2: { vlan: 100 }, finance-bridge@service-domain.2: { vlan: 200 }, shadow-gw@service-domain.3: { vlan: 1200 }" The service specified by "finance-bridge@service-domain.2: { vlan: 100 }" in this example has the service name "finance-bridge" and the network service domain "service-domain.2".
-NSC can request for a service using the service name in its `NSM_NETWORK_SERVICES` environment variable (Example; "kernel://finance-bridge/nsm-1"). The forwarder can select a base interface for the network service domain based on its mapping (see section [Configure VPP Forwarder](https://github.com/Nordix/nsm-test/blob/master/doc/vpp-forwarder-vlansup-build.md#configure-vpp-forwarder))
+- The NSE as service provider - provides multiple services for NSC to connect to. The list of supported services can be set by `NSM_SERVICES` environment variable. Example; "finance-bridge { vlan: 100; via: gw1 }, finance-bridge { vlan: 200; via: gw2 }, shadow-gw { vlan: 1200; via: gw2 }" The service specified by "finance-bridge { vlan: 100; via: gw1 }" in this example has the service name "finance-bridge" and the label via="gw-1".
+NSC can request for a service using the service name in its `NSM_NETWORK_SERVICES` environment variable (Example; "kernel://finance-bridge/nsm-1"). The forwarder can select a base interface for the 'via' label based on its mapping (see section [Configure VPP Forwarder](https://github.com/Nordix/nsm-test/blob/master/doc/vpp-forwarder-vlansup-build.md#configure-vpp-forwarder))
