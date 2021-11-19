@@ -1,13 +1,18 @@
-serviceDomains:
-  service.domain.1:
-    interfaces:
-        - name: eth1
-  service.domain.2:
-    interfaces:
-        - name: eth2
-  service.domain.3:
-    interfaces:
-        - name: eth3
-  service.domain.4:
-    interfaces:
-        - name: eth4
+---
+interfaces:
+  - name: eth1
+    matches:
+       - labelSelector:
+           - via: gw0
+  - name: eth2
+    matches:
+       - labelSelector:
+           - via: service.domain.2
+  - name: eth3
+    matches:
+       - labelSelector:
+           - via: gw2
+  - name: eth4
+    matches:
+       - labelSelector:
+           - via: gw3
