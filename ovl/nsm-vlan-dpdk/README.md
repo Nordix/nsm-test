@@ -144,6 +144,8 @@ show log
 If we mount `/dev/vfio/` directory from host fs into the
 `forwarder-vpp` container with a volumeMount in the manifest it works!
 
+Since dpdk is polling you will see 3 of your cores on your host running at 100%.
+
 
 ### The uio_pci_generic problem
 

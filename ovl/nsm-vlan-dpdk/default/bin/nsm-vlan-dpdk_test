@@ -77,11 +77,13 @@ cmd_tcase_vpp_vlan_ping_external() {
 		ip addr add 169.254.100.254/24 dev eth3.100
 		ip -6 addr add 100:100::254/64 dev eth3.100
 	fi
+	pushv 30
 	local i
 	for i in 1 2 3; do
-		ping -c1 -W1 169.254.100.$i || tdie 169.254.100.$i
+		tex "ping -c1 -W1 169.254.100.$i" || tdie 169.254.100.$i
 		tex "ping -c1 -W1 100:100::$i" || tdie 100:100::$i
 	done
+	popv
 }
 
 cmd_tcase_ifup() {
