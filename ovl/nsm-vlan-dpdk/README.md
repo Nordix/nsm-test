@@ -146,6 +146,20 @@ If we mount `/dev/vfio/` directory from host fs into the
 
 Since dpdk is polling you will see 3 of your cores on your host running at 100%.
 
+Check interfaces in vpp;
+```
+pod=$(kubectl get pods -l app=forwarder-vpp -o name | head -1)
+kubectl exec -it $pod -- vppctl
+vpp# show int
+              Name               Idx    State  MTU (L3/IP4/IP6/MPLS)     Counter          Count     
+GigabitEthernet0/6/0              1     down         9000/0/0/0     
+host-eth1                         4      up          1500/0/0/0     rx packets                   645
+                                                                    rx bytes                  176201
+                                                                    tx packets                     1
+                                                                    tx bytes                      42
+...
+```
+
 
 ### The uio_pci_generic problem
 
