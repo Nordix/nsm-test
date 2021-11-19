@@ -58,8 +58,8 @@ show log
 
 ## Vlan
 
-A mapping file domain->interfaces must be provided to the
-`forwarder-vpp` and passed in the `$NSM_DOMAIN_CONFIG_FILE` variable;
+A mapping file interfaces->labelSelector must be provided to the
+`forwarder-vpp` and passed in the `$NSM_DEVICE_SELECTOR_FILE` variable;
 
 ```
 interfaces:
@@ -119,7 +119,7 @@ use `iommu`. It must be configured in the kernel cmdline with;
 iommu=pt intel_iommu=on
 ```
 The `intel-iommu` device must also be loaded to `qemu`
-described [here](https://gist.github.com/mcastelino/e0cca2af5694ba672af8e274f5dffb47)).
+described [here](https://gist.github.com/mcastelino/e0cca2af5694ba672af8e274f5dffb47).
 
 To configure iommu, start with;
 ```
