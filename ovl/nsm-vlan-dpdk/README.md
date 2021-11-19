@@ -39,7 +39,7 @@ Automatic Test;
 ./nsm-vlan-dpdk.sh test > $log
 ```
 
-Check out things;
+Check things out;
 ```
 ./nsm-vlan-dpdk.sh test --no-stop > $log
 # On a vm;
@@ -47,10 +47,12 @@ cat /proc/cmdline
 grep Huge /proc/meminfo
 lspci
 pod=$(kubectl get pods -l app=forwarder-vpp -o name | head -1)
+kubectl logs $pod
 kubectl exec -it $pod -- vppctl
 show dpdk version
 show pci
 show int
+show log
 ```
 
 
@@ -99,7 +101,54 @@ Hugepages must be configured in `xcluster` and also in the
 `forwarder-vpp` manifest to become available inside the container. Please see the [K8s documentation](https://kubernetes.io/docs/tasks/manage-hugepages/scheduling-hugepages/).
 
 
-### The iommu problem
+### The vfio-pci problem
 
-Dpdk requires IOMMU (described [here](https://gist.github.com/mcastelino/e0cca2af5694ba672af8e274f5dffb47)).
-For now that doesn't work in `xcluster`.
+Dpdk requires an [uio-driver](https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html). It is configured in the `vpp` config file;
+```
+dpdk {
+	dev 0000:00:06.0
+	#uio-driver uio_pci_generic
+	uio-driver vfio-pci
+}
+```
+
+The recommended driver is `vfio-pci` and the normal operation is to
+use `iommu`. It must be configured in the kernel cmdline with;
+
+```
+iommu=pt intel_iommu=on
+```
+The `intel-iommu` device must also be loaded to `qemu`
+described [here](https://gist.github.com/mcastelino/e0cca2af5694ba672af8e274f5dffb47)).
+
+To configure iommu, start with;
+```
+./nsm-vlan-dpdk.sh test --iommu > $log
+```
+However this makes the `forwarder-vpp` crash. It is hard to trouble-shoot
+since the dpdk logs are lost in the crash.
+
+Instead we use vfio with `enable_unsafe_noiommu_mode=1`. Now we get
+further, `forwarder-vpp` start and the nic driver is set to
+`vfio-pci`, but the device is still not visible in vpp;
+
+```
+pod=$(kubectl get pods -l app=forwarder-vpp -o name | head -1)
+kubectl exec -it $pod -- vppctl
+show log
+...
+2021/11/19 14:54:13:981 notice     dpdk           EAL: Failed to open VFIO group 0
+2021/11/19 14:54:13:981 notice     dpdk           EAL: 0000:00:06.0 not managed by VFIO driver, skipping
+```
+
+If we mount `/dev/vfio/` directory from host fs into the
+`forwarder-vpp` container with a volumeMount in the manifest it works!
+
+
+### The uio_pci_generic problem
+
+In short, it doesn't work because `/dev/uio0` is created in the host
+fs, not in the forwarder-vpp container fs. The mount-trick can't be
+used because `/dev/uio0` is not created until the `forwarder-vpp` starts.
+
+

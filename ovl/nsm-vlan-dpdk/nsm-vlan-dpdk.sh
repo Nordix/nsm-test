@@ -105,10 +105,12 @@ test_start() {
     export __append2="hugepages=512"
     export __append3="hugepages=512"
 	if test "$__iommu" = "yes"; then
+		# https://gist.github.com/mcastelino/e0cca2af5694ba672af8e274f5dffb47
 		__kvm_opt="$__kvm_opt -device intel-iommu,intremap=on,caching-mode=on,device-iotlb=on"
-	    export __append1="hugepages=512 iommu=1 intel_iommu=on"
-		export __append2="hugepages=512 iommu=1 intel_iommu=on"
-		export __append3="hugepages=512 iommu=1 intel_iommu=on"
+		# https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html
+	    export __append1="hugepages=512 iommu=pt intel_iommu=on"
+		export __append2="hugepages=512 iommu=pt intel_iommu=on"
+		export __append3="hugepages=512 iommu=pt intel_iommu=on"
 	fi
 	export __kvm_opt
 	test_start_empty lspci

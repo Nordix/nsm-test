@@ -52,6 +52,8 @@ spec:
             - name: NSM_DEVICE_SELECTOR_FILE
               value: /etc/vpp/DomainConfigFile
           volumeMounts:
+            - name: dev-vfio
+              mountPath: /dev/vfio
             - name: spire-agent-socket
               mountPath: /run/spire/sockets
               readOnly: true
@@ -68,6 +70,10 @@ spec:
             requests:
               memory: 200Mi
       volumes:
+        - name: dev-vfio
+          hostPath:
+            path: /dev/vfio
+            type: Directory
         - name: spire-agent-socket
           hostPath:
             path: /run/spire/sockets

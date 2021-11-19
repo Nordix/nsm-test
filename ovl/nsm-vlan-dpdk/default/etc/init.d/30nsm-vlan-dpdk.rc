@@ -9,7 +9,9 @@ hostname | grep -Eq 'vm-[0-9]+$' || die "Invalid hostname [$(hostname)]"
 i=$(hostname | cut -d- -f2 | sed -re 's,^0+,,')
 
 vm() {
+	grep -q iommu /proc/cmdline || modprobe vfio enable_unsafe_noiommu_mode=1
 	modprobe vfio-pci
+	modprobe uio_pci_generic
 	modprobe e1000
 	d=/dev/hugepages
 	mkdir -p $d
