@@ -1,0 +1,4 @@
+export __mem1=4096
+export __mem=3072
+export __nvm=3
+export __net_setup=$PWD/config/net-setup-netns.sh

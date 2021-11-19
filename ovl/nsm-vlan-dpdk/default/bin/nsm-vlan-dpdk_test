@@ -1,0 +1,123 @@
+#! /bin/sh
+##
+## nsm-vlan-dpdk_test --
+##
+##   Test script for nsm-vlan-dpdk executed in xcluster.
+##
+## Commands;
+##
+
+prg=$(basename $0)
+dir=$(dirname $0); dir=$(readlink -f $dir)
+me=$dir/$prg
+tmp=/tmp/${prg}_$$
+test -n "$DOMAIN" || DOMAIN=xcluster
+yamld=/etc/kubernetes/nsm-vlan-dpdk
+
+die() {
+	echo "ERROR: $*" >&2
+	rm -rf $tmp
+	exit 1
+}
+help() {
+	grep '^##' $0 | cut -c3-
+	rm -rf $tmp
+	exit 0
+}
+test -n "$1" || help
+echo "$1" | grep -qi "^help\|-h" && help
+
+log() {
+	echo "$prg: $*" >&2
+}
+dbg() {
+	test -n "$__verbose" && echo "$prg: $*" >&2
+}
+
+cmd_tcase_check_namespaces() {
+	test_namespaces
+}
+cmd_tcase_check_nodes() {
+	test_nodes
+}
+cmd_tcase_vip_routes() {
+	tcase "Set VIP routes (ECMP)"
+	vip_route
+}
+
+cmd_tcase_start_spire() {
+	tcase "Start spire"
+	kubectl apply -f /etc/kubernetes/meridio/spire.yaml
+	kubectl="kubectl -n spire"
+	test_statefulset spire-server 180
+	test_daemonset spire-agent 120
+	/etc/kubernetes/meridio/spire-config.sh || tdie spire-config
+}
+
+cmd_tcase_start_nsm_vpp_vlan() {
+	tcase "Start NSM with vlan support in vpp-forwarder"
+	kubectl apply -f /etc/kubernetes/nsm/nsm-vlan.yaml
+	test_daemonset forwarder-vpp 120
+	test_daemonset nsmgr 30
+	test_deployment nsm-registry 30
+}
+
+cmd_tcase_nse_nsc_vpp_vlan() {
+	tcase "Start NSE/NSC with vlan support in vpp-forwarder"
+	kubectl apply -f /etc/kubernetes/nsm/nse_nsc_vlan.yaml
+	test_deployment vlan-nse 120
+	test_daemonset vlan-nsc 30
+}
+cmd_tcase_vpp_vlan_ping_external() {
+	tcase "Ping the vpp-nsc's from an external machine"
+	if ! ip link show eth3.100 2>&1; then
+		ip link set up eth3
+		ip link add link eth3 name eth3.100 type vlan id 100
+		ip link set up dev eth3.100
+		ip addr add 169.254.100.254/24 dev eth3.100
+		ip -6 addr add 100:100::254/64 dev eth3.100
+	fi
+	local i
+	for i in 1 2 3; do
+		ping -c1 -W1 169.254.100.$i || tdie 169.254.100.$i
+		tex "ping -c1 -W1 100:100::$i" || tdie 100:100::$i
+	done
+}
+
+cmd_tcase_ifup() {
+	local iface=eth2
+	test -n "$1" && iface=$1
+	tcase "Interface up [$iface]"
+	ip link set up dev $iface
+}
+
+. /etc/profile
+. /usr/lib/xctest
+indent='  '
+
+
+# Get the command
+cmd=$1
+shift
+grep -q "^cmd_$cmd()" $0 || die "Invalid command [$cmd]"
+
+while echo "$1" | grep -q '^--'; do
+	if echo $1 | grep -q =; then
+		o=$(echo "$1" | cut -d= -f1 | sed -e 's,-,_,g')
+		v=$(echo "$1" | cut -d= -f2-)
+		eval "$o=\"$v\""
+	else
+		o=$(echo "$1" | sed -e 's,-,_,g')
+		eval "$o=yes"
+	fi
+	shift
+done
+unset o v
+long_opts=`set | grep '^__' | cut -d= -f1`
+
+# Execute command
+trap "die Interrupted" INT TERM
+cmd_$cmd "$@"
+status=$?
+rm -rf $tmp
+exit $status

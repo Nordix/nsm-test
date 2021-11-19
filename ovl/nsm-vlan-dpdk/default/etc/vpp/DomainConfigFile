@@ -1,0 +1,7 @@
+serviceDomains:
+  service.domain.2:
+    interfaces:
+        - name: eth2
+  service.domain.3:
+    interfaces:
+        - name: eth3
