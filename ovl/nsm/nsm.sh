@@ -181,9 +181,11 @@ test_vpp_vlan() {
 	export xcluster_NSM_NSE=new-vlan
 	export xcluster_NSM_VLAN=true
 	export xcluster_NSM_SERVICE_NAME=finance-bridge
+	export __nets202=0,1,2,3,4,5
 	test_start
 	otc 1 start_nsc_nse
 	otc 1 ping_interfaces_vlan
+	otc 201 check_vlan
 	unset xcluster_NSM_SERVICE_NAME
 	unset xcluster_NSM_VLAN
 	unset xcluster_NSM_NSE

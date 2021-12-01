@@ -4,9 +4,17 @@ die() {
 	exit 1
 }
 
+router() {
+       ip link add link eth2 name eth2.100 type vlan id 100
+       ip link set eth2.100 up
+       ip addr add 172.10.0.0/24 dev eth2.100
+       ip addr add 100:200::/64 dev eth2.100
+       exit 0
+}
+
 hostname | grep -Eq 'vm-[0-9]+$' || die "Invalid hostname [$(hostname)]"
 i=$(hostname | cut -d- -f2 | sed -re 's,^0+,,')
 
-test $i -le 200 || exit 0
+test $i -le 200 || router
 
 mount --make-rshared /
