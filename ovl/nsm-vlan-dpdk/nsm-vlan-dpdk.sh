@@ -86,16 +86,11 @@ test_start_empty() {
 	. $($XCLUSTER ovld network-topology)/$TOPOLOGY/Envsettings
 	export __smp202=3
 	export __nets202=0,1,2,3,4,5
-	xcluster_start network-topology nsm-vlan-dpdk $@
+	xcluster_start network-topology nsm-vlan-dpdk spire $@
 
 	otc 1 check_namespaces
 	otc 1 check_nodes
 	otcr vip_routes
-}
-test_start() {
-	test_start_empty
-	otc 1 start_spire
-	otc 1 start_nsm_vlan
 }
 test_start() {
 	# Avoid "Illegal instruction" error with -cpu host
@@ -114,7 +109,13 @@ test_start() {
 	fi
 	export __kvm_opt
 	test_start_empty lspci
-	otc 1 start_spire
+	if test "$OVL_SPIRE" != "no"; then
+		otcprog=spire_test
+		otc 1 start_spire_registrar
+		unset otcprog
+	else
+		otc 1 start_spire
+	fi
 	otcw "ifup eth2"
 	otcw "ifup eth3"
 	#otcw "ifup eth4" # eth4 must be down to be grabbed by dpdk
