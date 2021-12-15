@@ -20,9 +20,6 @@ Prepare;
 ```bash
 . ./Envsettings               # Config mem and network (important!)
 log=/tmp/$USER/xcluster.log   # (assumed to be set)
-# Generate manifests from Meridio (only spire);
-#export __meridio_dir=/your/path/to/Nordix/Meridio
-./nsm-vlan-dpdk.sh generate_manifests
 # Pre-load the local registry;
 for n in $(images lreg_missingimages .); do
   images lreg_cache $n

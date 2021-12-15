@@ -130,23 +130,6 @@ test_default() {
 	xcluster_stop
 }
 
-##   generate_manifests [--clean] [--meridio-dir=dir]
-##     Generate manifests from the helm charts in "Meridio/docs".
-##
-cmd_generate_manifests() {
-	local dst=$dir/default/etc/kubernetes/meridio
-	test "$__clean" = "yes" && rm -rf $dst
-	mkdir -p $dst
-	local m=$GOPATH/src/github.com/Nordix/Meridio/docs/demo/deployments
-	test -n "$__meridio_dir" && m="$__meridio_dir/docs/demo/deployments"
-	local n
-	for n in spire; do
-		helm template $m/$n --generate-name > $dst/$n.yaml || die
-	done
-	cp $m/../scripts/spire* $dst
-}
-
-
 . $($XCLUSTER ovld test)/default/usr/lib/xctest
 indent=''
 

@@ -15,8 +15,6 @@ log() {
 
 test -n "$1" || die "No out-file"
 
-$dir/nsm-vlan-dpdk.sh generate_manifests
-
 mkdir -p $tmp
 cp -R $dir/default/* $tmp
 
