@@ -36,14 +36,13 @@ dbg() {
 ##    Print environment.
 ##
 cmd_env() {
-
-	test -n "$__tag" || __tag="registry.nordix.org/cloud-native/nsm-vlan-dpdk:latest"
-
 	if test "$cmd" = "env"; then
 		set | grep -E '^(__.*)='
 		return 0
 	fi
 
+	cd $dir
+	. ./Envsettings
 	test -n "$xcluster_DOMAIN" || xcluster_DOMAIN=xcluster
 	test -n "$XCLUSTER" || die 'Not set [$XCLUSTER]'
 	test -x "$XCLUSTER" || die "Not executable [$XCLUSTER]"
@@ -96,9 +95,9 @@ test_start() {
 	# Avoid "Illegal instruction" error with -cpu host
 	# accel=kvm,kernel_irqchip=split is needed for iommu
     __kvm_opt='-M q35,accel=kvm,kernel_irqchip=split -object rng-random,filename=/dev/urandom,id=rng0 -device virtio-rng-pci,rng=rng0,max-bytes=1024,period=80000 -cpu host'
-    export __append1="hugepages=512"
-    export __append2="hugepages=512"
-    export __append3="hugepages=512"
+    export __append1="hugepages=128"
+    export __append2="hugepages=128"
+    export __append3="hugepages=128"
 	if test "$__iommu" = "yes"; then
 		# https://gist.github.com/mcastelino/e0cca2af5694ba672af8e274f5dffb47
 		__kvm_opt="$__kvm_opt -device intel-iommu,intremap=on,caching-mode=on,device-iotlb=on"

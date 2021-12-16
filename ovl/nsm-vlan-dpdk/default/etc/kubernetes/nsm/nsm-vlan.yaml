@@ -65,8 +65,8 @@ spec:
               mountPath: /dev/hugepages
           resources:
             limits:
-              hugepages-2Mi: 1Gi
-              memory: 1Gi
+              hugepages-2Mi: 256Mi
+              memory: 256Mi
             requests:
               memory: 200Mi
       volumes:
@@ -128,6 +128,16 @@ spec:
                   fieldPath: status.podIP
             - name: NSM_LISTEN_ON
               value: unix:///var/lib/networkservicemesh/nsm.io.sock,tcp://:5001
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: CLUSTER_NAME
+              value: xcluster
           volumeMounts:
             - name: spire-agent-socket
               mountPath: /run/spire/sockets

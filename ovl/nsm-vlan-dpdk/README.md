@@ -18,7 +18,6 @@ Router `vm-202` is connected to the secondary networks.
 
 Prepare;
 ```bash
-. ./Envsettings               # Config mem and network (important!)
 log=/tmp/$USER/xcluster.log   # (assumed to be set)
 # Pre-load the local registry;
 for n in $(images lreg_missingimages .); do
