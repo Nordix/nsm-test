@@ -30,7 +30,7 @@ nodes. `/etc/nsm/` is mounted by the forwarder POD and the file is specified wit
               value: /etc/nsm/DomainConfigFileOvs
 ```
 in the forwarder manifest. This is similar with the `forwarder-vpp`
-(but not exectly the same?).
+(but not exactly the same?).
 
 The NSE defines a service based on the labelSelector;
 ```yaml
@@ -54,7 +54,7 @@ tests the same NSC can be used with `forwarder-vpp` and `forwarder-ovs`.
 
 Prepare [ovl/spire](https://github.com/Nordix/xcluster/tree/master/ovl/spire).
 
-Prepare;
+Load the local image registry;
 ```bash
 cdo nsm-ovs
 log=/tmp/$USER/xcluster.log   # (assumed to be set)
@@ -72,15 +72,19 @@ The tests starts `spire` and the NSM base (nsmgr and registry). Then a
 forwarder and NSE is selected based on the `xcluster_NSM_FORWARDER`
 variable. The NSC is the same regardless of the forwarder/nse.
 
-Vlan tag=100 on `eth2` is setup in all NSC PODs and `ping` is
-tested between all PODs internally. A vlan is setup on router
+Interface `nsm-1` is setup in all NSC PODs and `ping` is
+tested between all PODs internally. A vlan tag=100 is setup on router
 `vm-202` and ping is tested externally (note that `eth3` on vm-202 is
-`eth2` on the VMs).
+`eth2` on the VMs). Then intern and extern TCP traffic is tested.
 
 
 ```
 #export xcluster_NSM_FORWARDER=vpp  # "ovs" is default
 ./nsm-ovs.sh test > $log
+# Or;
+__nvm=4 xcadmin k8s_test --cni=calico nsm-ovs > $log
+# Optional (takes some time because of timeouts)
+./nsm-ovs.sh test udp > $log
 ```
 
 

@@ -45,6 +45,7 @@ cmd_env() {
 	fi
 
 	test -n "$xcluster_NSM_FORWARDER" || export xcluster_NSM_FORWARDER=ovs
+	test -n "$xcluster_FIRST_WORKER" || export xcluster_FIRST_WORKER=1
 	test -n "$xcluster_DOMAIN" || xcluster_DOMAIN=xcluster
 	test -n "$XCLUSTER" || die 'Not set [$XCLUSTER]'
 	test -x "$XCLUSTER" || die "Not executable [$XCLUSTER]"
@@ -87,11 +88,15 @@ test_start_empty() {
 	. $($XCLUSTER ovld network-topology)/$TOPOLOGY/Envsettings
 	export __smp202=3
 	export __nets202=0,1,2,3,4,5
-	export __mem1=4096
+	if test "$xcluster_FIRST_WORKER" = "1"; then
+		export __mem1=4096
+	else
+		export __mem1=1024
+	fi
 	export __mem=3072
 	test -n "$__nvm" || __nvm=3
 	export __nvm
-	xcluster_start network-topology nsm-ovs spire lspci $@
+	xcluster_start network-topology nsm-ovs spire $@
 
 	otc 1 check_namespaces
 	otc 1 check_nodes
@@ -117,14 +122,33 @@ test_start() {
 }
 
 test_default() {
-	tlog "=== nsm-ovs: Basic test forwarder=$xcluster_NSM_FORWARDER"
+	tlog "=== nsm-ovs: Ping/TCP test forwarder=$xcluster_NSM_FORWARDER"
 	test_start
 	otc 1 start_nse
 	otc 1 start_nsc
 	otc 1 collect_addresses
 	otc 1 internal_ping
+	otc 202 setup_vlan
 	otc 202 collect_addresses
 	otc 202 external_ping
+	otc 1 start_tcp_servers
+	otc 1 internal_tcp
+	otc 202 external_tcp
+	otc 1 stop_tcp_servers
+	xcluster_stop
+}
+
+test_udp() {
+	tlog "=== nsm-ovs: UDP test forwarder=$xcluster_NSM_FORWARDER"
+	test_start
+	otc 1 start_nse
+	otc 1 start_nsc
+	otc 1 collect_addresses
+	otc 1 internal_udp
+	otc 202 setup_vlan
+	otc 202 collect_addresses
+	otc 202 external_ping
+	otc 202 external_udp
 	xcluster_stop
 }
 
