@@ -68,6 +68,11 @@ for n in $(images getimages .); do
 done
 ```
 
+The `forwarder-ovs` start ovs itself by default. This may be
+undesirable and it can use the ovs on the host instead. This requires
+another image and slightly different configuration. In xcluster you
+can use `export xcluster_HOST_OVS=yes`.
+
 The tests starts `spire` and the NSM base (nsmgr and registry). Then a
 forwarder and NSE is selected based on the `xcluster_NSM_FORWARDER`
 variable. The NSC is the same regardless of the forwarder/nse.
@@ -80,6 +85,7 @@ tested between all PODs internally. A vlan tag=100 is setup on router
 
 ```
 #export xcluster_NSM_FORWARDER=vpp  # "ovs" is default
+#export xcluster_HOST_OVS=yes       # Use ovs on the host
 ./nsm-ovs.sh test > $log
 # Or;
 __nvm=4 xcadmin k8s_test --cni=calico nsm-ovs > $log
@@ -100,6 +106,9 @@ built locally.
 cd $GOPATH/src/github.com/networkservicemesh/cmd-forwarder-ovs
 docker build --tag registry.nordix.org/cloud-native/nsm/cmd-forwarder-ovs:vlansup .
 images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-forwarder-ovs:vlansup
+# use-host-ovs;
+docker build --tag registry.nordix.org/cloud-native/nsm/cmd-forwarder-host-ovs:vlansup -f Dockerfile.use-host-ovs .
+images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-forwarder-host-ovs:vlansup
 ```
 
 ```
@@ -107,11 +116,12 @@ images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-forward
 #rm -r cmd-nse-remote-vlan
 #git clone --depth 1 https://github.com/networkservicemesh/cmd-nse-remote-vlan.git
 cd $GOPATH/src/github.com/networkservicemesh/cmd-nse-remote-vlan
-docker build --tag registry.nordix.org/cloud-native/nsm/cmd-nse-remote-vlan:vlansup .
+docker build --tag registry.nordix.org/cloud-native/nsm/cmd-nse-remote-vlan:vlansup
 images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-nse-remote-vlan:vlansup
 ```
 
-
+The manifests are taken from the [deployments-k8s](https://github.com/networkservicemesh/deployments-k8s)
+NSM repo with minor adaptations for `xcluster`.
 
 
 ## Troubleshoot

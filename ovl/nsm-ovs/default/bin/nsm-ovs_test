@@ -62,8 +62,9 @@ cmd_tcase_start_nsm() {
 }
 
 cmd_tcase_start_forwarder() {
-	tcase "Start NSM forwarder-$NSM_FORWARDER"
 	local f=/etc/kubernetes/nsm/forwarder-$NSM_FORWARDER.yaml
+	test "$HOST_OVS" = "yes" && f=/etc/kubernetes/nsm/forwarder-host-ovs.yaml
+	tcase "Start NSM forwarder-$(basename $f)"
 	test -r $f || tdie "Not readable [$f]"
 	kubectl apply -f $f || tdie
 	test_daemonset forwarder-$NSM_FORWARDER 120 || tdie
