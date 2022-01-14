@@ -124,6 +124,7 @@ test_start() {
 	unset otcprog
 	otc 1 start_nsm
 	otc 1 start_forwarder
+	test "$xcluster_NSM_FORWARDER" = "vpp" && otc 1 vpp_version
 }
 
 test_default() {

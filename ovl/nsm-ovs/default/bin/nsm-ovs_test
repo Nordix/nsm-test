@@ -233,6 +233,16 @@ cmd_tcase_external_udp() {
 	done
 }
 
+cmd_tcase_vpp_version() {
+	tcase "VPP version"
+	local pod=$(kubectl get pods -l app=forwarder-vpp -o name | head -1)
+	mkdir -p $tmp
+	kubectl exec $pod -- vppctl show version > $tmp/out 2> $tmp/err
+	cat $tmp/err $tmp/out
+	grep -qF 'vpp v' $tmp/out || tdie
+	tlog "$(cat $tmp/out)"
+	return 0
+}
 
 . /etc/profile
 . /usr/lib/xctest
