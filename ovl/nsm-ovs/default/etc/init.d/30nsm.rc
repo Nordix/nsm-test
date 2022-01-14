@@ -14,6 +14,7 @@ vm() {
 	d=/dev/hugepages
 	mkdir -p $d
 	mount -t hugetlbfs nodev $d
+	modprobe e1000
 }
 
 router() {

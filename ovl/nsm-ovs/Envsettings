@@ -1,0 +1,2 @@
+export __net_setup=$PWD/config/net-setup-netns.sh
+echo "Using emulated e1000 nic instead of virtio on external net"

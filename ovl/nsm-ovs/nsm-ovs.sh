@@ -96,7 +96,7 @@ test_start_empty() {
 	export __mem=3072
 	test -n "$__nvm" || __nvm=3
 	export __nvm
-	xcluster_start network-topology nsm-ovs spire $@
+	xcluster_start network-topology nsm-ovs spire lspci $@
 
 	otc 1 check_namespaces
 	otc 1 check_nodes
