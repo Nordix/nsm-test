@@ -52,6 +52,7 @@ cmd_tcase_ifup() {
 	tcase "Interface up [$iface]"
 	echo 0 > /proc/sys/net/ipv6/conf/$iface/accept_dad
 	ip link set up dev $iface
+	#ethtool -K $iface tx off
 }
 
 cmd_tcase_start_nsm() {
@@ -115,29 +116,30 @@ cmd_tcase_internal_ping() {
 }
 
 cmd_tcase_setup_vlan() {
-    tcase "Setup vlan on router vm-202"
+	tcase "Setup vlan on router vm-202"
 	# Note that eth2 on the VMs is eth3 on router vm-202
-    if ! ip link show eth3.100 2>&1; then
+	if ! ip link show eth3.100 2>&1; then
 		echo 0 > /proc/sys/net/ipv6/conf/eth3/accept_dad
-        ip link set up eth3
-        ip link add link eth3 name eth3.100 type vlan id 100
+		ip link set up eth3
+		ethtool -K eth3 tx off
+		ip link add link eth3 name eth3.100 type vlan id 100
 		echo 0 > /proc/sys/net/ipv6/conf/eth3.100/accept_dad
-        ip link set up dev eth3.100
-        ip addr add 169.254.100.254/24 dev eth3.100
-        ip -6 addr add 100:100::254/64 dev eth3.100
-    fi
+		ip link set up dev eth3.100
+		ip addr add 169.254.100.254/24 dev eth3.100
+		ip -6 addr add 100:100::254/64 dev eth3.100
+	fi
 }
 
 cmd_tcase_external_ping() {
-    tcase "Ping the nsc's from router vm-202"
-    pushv 30
+	tcase "Ping the nsc's from router vm-202"
+	pushv 30
 	local ipm ip
 	# DAD causes a delay before addresses are usable
 	for ipm in $(cat /tmp/adr); do
 		ip=$(echo $ipm | cut -d/ -f1)
-        tex "ping -c1 -W1 $ip" || tdie "$ip"
+		tex "ping -c1 -W1 $ip" || tdie "$ip"
 	done
-    popv
+	popv
 }
 
 start_nc_server() {
@@ -174,7 +176,7 @@ cmd_tcase_internal_tcp() {
 }
 
 cmd_tcase_external_tcp() {
-    tcase "External TCP to the nsc's from router vm-202"
+	tcase "External TCP to the nsc's from router vm-202"
 	local ipm ip
 	for ipm in $(cat /tmp/adr); do
 		ip=$(echo $ipm | cut -d/ -f1)

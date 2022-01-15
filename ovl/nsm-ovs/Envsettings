@@ -1,2 +1,4 @@
 export __net_setup=$PWD/config/net-setup-netns.sh
-echo "Using emulated e1000 nic instead of virtio on external net"
+export xcluster_MODPROBE=e1000
+echo "Using emulated e1000 nic instead of virtio"
+echo "To cancel do; unset __net_setup xcluster_MODPROBE"

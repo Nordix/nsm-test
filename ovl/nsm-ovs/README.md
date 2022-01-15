@@ -133,3 +133,21 @@ ovs-vsctl show
 ovs-appctl dpctl/show
 ```
 
+### The virtio cksum problem
+
+When a `virtio` nic is used, which is the default in `xcluster`, tcp
+cksums are incorrect if tx-checksumming is on. The packets are read by
+vpp (with an AF_PACKET socket) and passed on to PODs. The packets are
+rejected by the PODs due to incorrect tcp cksum.
+
+#### Work-around 1
+
+Set `ethtool -K eth3 tx off` in `vm-202` (this is set by scripts). This
+will force the kernel to calculate the tcp cksum.
+
+#### Work-around 2
+
+Use an emulated HW-NIC instead of `virtio`. This can be tested with;
+```
+. ./Envsettings
+```

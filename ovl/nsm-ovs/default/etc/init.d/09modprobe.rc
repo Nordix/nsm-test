@@ -1,0 +1,4 @@
+#! /bin/sh
+. /etc/profile
+test -n "$MODPROBE" || exit 0
+modprobe $MODPROBE

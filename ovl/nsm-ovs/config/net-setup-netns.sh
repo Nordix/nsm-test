@@ -19,7 +19,7 @@ fi
 dev=e1000
 
 b0=$(printf '%02x' $nodeid)
-if test $n -eq 3; then
+if test $n -ge 1; then
 	echo "$opt -netdev tap,id=net$n,script=no,downscript=/tmp/rmtap,ifname=$tap"
 	echo "$opt -device $dev,netdev=net$n,mac=00:00:00:01:0$b1:$b0"
 else
