@@ -1,17 +1,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nse-vlan-ovs
+  name: nse-vlan
   labels:
-    app: nse-vlan-ovs
+    app: nse-vlan
 spec:
   selector:
     matchLabels:
-      app: nse-vlan-ovs
+      app: nse-vlan
   template:
     metadata:
       labels:
-        app: nse-vlan-ovs
+        app: nse-vlan
     spec:
       containers:
         - name: nse
@@ -48,4 +48,3 @@ spec:
           hostPath:
             path: /var/lib/networkservicemesh
             type: DirectoryOrCreate
-

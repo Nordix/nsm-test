@@ -114,9 +114,9 @@ test_start() {
 	export __append3="hugepages=128"
 	if test "$xcluster_HOST_OVS" = "yes"; then
 		test "$xcluster_NSM_FORWARDER" = "ovs" || tdie "Forwarder must be ovs"
-		test_start_empty ovs
+		test_start_empty ovs $@
 	else
-		test_start_empty
+		test_start_empty $@
 	fi
 
 	otcprog=spire_test

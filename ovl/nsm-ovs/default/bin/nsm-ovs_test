@@ -72,11 +72,11 @@ cmd_tcase_start_forwarder() {
 }
 
 cmd_tcase_start_nse() {
-	tcase "Start NSE nse-vlan-$NSM_FORWARDER"
-	local f=/etc/kubernetes/nsm/nse-vlan-$NSM_FORWARDER.yaml
+	tcase "Start NSE nse-vlan"
+	local f=/etc/kubernetes/nsm/nse-vlan.yaml
 	test -r $f || tdie "Not readable [$f]"
 	kubectl apply -f $f || tdie
-	test_deployment nse-vlan-$NSM_FORWARDER 120 || tdie
+	test_deployment nse-vlan 120 || tdie
 }
 
 cmd_tcase_start_nsc() {
