@@ -158,6 +158,21 @@ test_udp() {
 	xcluster_stop
 }
 
+test_multivlan() {
+	tlog "=== nsm-ovs: Multiple vlan-tags forwarder=$xcluster_NSM_FORWARDER"
+	test_start
+	otc 1 "start_nse nse-vlan"
+	otc 1 "start_nsc nsc-vlan"
+	otc 1 "collect_addresses nsc-vlan"
+	otc 1 internal_ping
+	otc 1 "start_nse nse-network2"
+	otc 1 "start_nsc nsc-network2"
+	otc 1 "collect_addresses nsc-network2"
+	otc 1 internal_ping
+	xcluster_stop
+}
+
+
 . $($XCLUSTER ovld test)/default/usr/lib/xctest
 indent=''
 

@@ -1,17 +1,17 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: nsc-vlan
+  name: nsc-network2
   labels:
-    app: nsc-vlan
+    app: nsc-network2
 spec:
   selector:
     matchLabels:
-      app: nsc-vlan
+      app: nsc-network2
   template:
     metadata:
       labels:
-        app: nsc-vlan
+        app: nsc-network2
     spec:
       containers:
         - name: nsc
@@ -31,7 +31,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: NSM_NETWORK_SERVICES
-              value: kernel://finance-bridge/nsm-1
+              value: kernel://network2/nsm-1
             - name: NSM_DIAL_TIMEOUT
               value: "30s"
             - name: NSM_REQUEST_TIMEOUT

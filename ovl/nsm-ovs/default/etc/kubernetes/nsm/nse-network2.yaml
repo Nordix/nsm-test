@@ -1,48 +1,44 @@
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
-  name: nsc-vlan
+  name: nse-network2
   labels:
-    app: nsc-vlan
+    app: nse-network2
 spec:
   selector:
     matchLabels:
-      app: nsc-vlan
+      app: nse-network2
   template:
     metadata:
       labels:
-        app: nsc-vlan
+        app: nse-network2
     spec:
       containers:
-        - name: nsc
-          securityContext:
-            privileged: true
-          image: registry.nordix.org/cloud-native/nsm/cmd-nsc:vlansup
+        - name: nse
+          image: registry.nordix.org/cloud-native/nsm/cmd-nse-remote-vlan:vlansup
           imagePullPolicy: IfNotPresent
           env:
-            - name: MY_NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
             - name: SPIFFE_ENDPOINT_SOCKET
               value: unix:///run/spire/sockets/agent.sock
-            - name: NSM_NAME
+            - name: NSE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: NSM_NETWORK_SERVICES
-              value: kernel://finance-bridge/nsm-1
-            - name: NSM_DIAL_TIMEOUT
-              value: "30s"
-            - name: NSM_REQUEST_TIMEOUT
-              value: "300s"
+            - name: NSE_CONNECT_TO
+              value: unix:///var/lib/networkservicemesh/nsm.io.sock
+            - name: NSM_SERVICES
+              value: "network2 { vlan: 200; via: service.domain.2}"
+            - name: NSM_CIDR_PREFIX
+              value: "169.254.102.0/24"
+            - name: NSM_IPV6_PREFIX
+              value: "100:102::/64"
           volumeMounts:
             - name: spire-agent-socket
               mountPath: /run/spire/sockets
               readOnly: true
             - name: nsm-socket
               mountPath: /var/lib/networkservicemesh
-              readOnly: true
+              readOnly: false
       volumes:
         - name: spire-agent-socket
           hostPath:

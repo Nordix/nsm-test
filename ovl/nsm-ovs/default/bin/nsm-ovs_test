@@ -72,31 +72,37 @@ cmd_tcase_start_forwarder() {
 }
 
 cmd_tcase_start_nse() {
-	tcase "Start NSE nse-vlan"
-	local f=/etc/kubernetes/nsm/nse-vlan.yaml
+	local nse=nse-vlan
+	test -n "$1" && nse=$1
+	tcase "Start NSE $nse"
+	local f=/etc/kubernetes/nsm/$nse.yaml
 	test -r $f || tdie "Not readable [$f]"
 	kubectl apply -f $f || tdie
-	test_deployment nse-vlan 120 || tdie
+	test_deployment $nse 120 || tdie
 }
 
 cmd_tcase_start_nsc() {
-	tcase "Start NSE NSC"
-	kubectl apply -f /etc/kubernetes/nsm/nsc-vlan.yaml || tdie
-	test_daemonset vlan-nsc 120 || tdie
+	local nsc=nsc-vlan
+	test -n "$1" && nsc=$1
+	tcase "Start NSC $nsc"
+	kubectl apply -f /etc/kubernetes/nsm/$nsc.yaml || tdie
+	test_daemonset $nsc 120 || tdie
 }
 
 cmd_tcase_collect_addresses() {
-	tcase "Collect NSC addresses"
+	local nsc=nsc-vlan
+	test -n "$1" && nsc=$1
+	tcase "Collect NSC addresses from $nsc"
 	local pod
 	mkdir -p $tmp
-	for pod in $(kubectl get pods -l app=vlan-nsc -o name); do
+	for pod in $(kubectl get pods -l app=$nsc -o name); do
 		echo $pod >> $tmp/out
 		tex "kubectl exec $pod -- ip addr show dev nsm-1 > /dev/null 2>&1" || tdie nsm-1
 		kubectl exec $pod -- ip addr show dev nsm-1 >> $tmp/out || tdie
 	done
 	cat $tmp/out
-	grep -Eo '169\.254\.100\.[1-9]+/[1-9]+' $tmp/out > /tmp/adr
-	grep -Eo '100:100::[1-9]+/[1-9]+' $tmp/out >> /tmp/adr
+	grep -Eo '169\.254\.10[0-9]\.[0-9]+/[0-9]+' $tmp/out > /tmp/adr
+	grep -Eo '100:10[0-9]::[0-9]+/[0-9]+' $tmp/out >> /tmp/adr
 	#cat /tmp/adr >&2
 }
 
@@ -116,18 +122,24 @@ cmd_tcase_internal_ping() {
 }
 
 cmd_tcase_setup_vlan() {
-	tcase "Setup vlan on router vm-202"
-	# Note that eth2 on the VMs is eth3 on router vm-202
-	if ! ip link show eth3.100 2>&1; then
-		echo 0 > /proc/sys/net/ipv6/conf/eth3/accept_dad
-		ip link set up eth3
-		ethtool -K eth3 tx off
-		ip link add link eth3 name eth3.100 type vlan id 100
-		echo 0 > /proc/sys/net/ipv6/conf/eth3.100/accept_dad
-		ip link set up dev eth3.100
-		ip addr add 169.254.100.254/24 dev eth3.100
-		ip -6 addr add 100:100::254/64 dev eth3.100
-	fi
+	local iface=eth3
+	test -n "$1" && iface=$1
+	test -n "$__tag" || __tag=100
+    tcase "Setup vlan on interface [$iface.$__tag]"
+    # Note that eth2 on the VMs is eth3 on router vm-202
+	ip link show $iface.$__tag 2>&1 && return 0
+	ip link show $iface 2>&1 || tdie "invalid iface $iface"
+
+    echo 0 > /proc/sys/net/ipv6/conf/$iface/accept_dad
+    ip link set up $iface
+    ethtool -K $iface tx off
+    ip link add link $iface name $iface.$__tag type vlan id $__tag
+    echo 0 > /proc/sys/net/ipv6/conf/$iface.$__tag/accept_dad
+    ip link set up dev $iface.$__tag
+	local n=100
+	test "$iface" = "eth4" && n=102
+    ip addr add 169.254.$n.254/24 dev $iface.$__tag
+    ip -6 addr add 100:$n::254/64 dev $iface.$__tag
 }
 
 cmd_tcase_external_ping() {
@@ -143,95 +155,119 @@ cmd_tcase_external_ping() {
 }
 
 start_nc_server() {
-	local pod
-	for pod in $(kubectl get pods -l app=vlan-nsc -o name); do
+	local pods=0 pod nsc=$1
+	shift
+	for pod in $(kubectl get pods -l app=$nsc -o name); do
+		pods=$((pods + 1))
 		kubectl exec $pod -- killall nc 2>&1
 		kubectl exec $pod -- sh -c \
 			"nc -lk $@ -p 6000 -e hostname > /dev/null < /dev/null 2>&1 &"
 	done
+	test $pods -gt 0 || tdie "No pods app=$nsc"
 }
 
 stop_nc_server() {
-	local pod
-	for pod in $(kubectl get pods -l app=vlan-nsc -o name); do
+	local pods=0 pod
+	for pod in $(kubectl get pods -l app=$1 -o name); do
+		pods=$((pods + 1))
 		kubectl exec $pod -- killall nc 2>&1
 	done
+	test $pods -gt 0 || tdie "No pods app=$1"
 }
 
 cmd_tcase_start_tcp_servers() {
-	tcase "Start TCP servers in all NSCs"
-	start_nc_server
+	local nsc=nsc-vlan
+	test -n "$1" && nsc=$1
+	tcase "Start TCP servers in NSCs $nsc"
+	start_nc_server $nsc
 }
 
 cmd_tcase_internal_tcp() {
-	tcase "Internal pod-to-pods TCP"
-	local pod ipm ip
-	for pod in $(kubectl get pods -l app=vlan-nsc -o name); do
+	local nsc=nsc-vlan
+	test -n "$1" && nsc=$1
+	tcase "Internal pod-to-pods TCP $nsc"
+	local pods=0 pod ipm ip
+	for pod in $(kubectl get pods -l app=$nsc -o name); do
+		pods=$((pods + 1))
 		for ipm in $(cat /tmp/adr); do
 			ip=$(echo $ipm | cut -d/ -f1)
 			kubectl exec $pod -- sh -c \
-				"echo | nc -w1 $ip 6000 | grep vlan-nsc" || tdie "$pod $ip"
+				"echo | nc -w1 $ip 6000 | grep $nsc" || tdie "$pod $ip"
 		done
 	done
+	test $pods -gt 0 || tdie "No pods app=$nsc"
 }
 
 cmd_tcase_external_tcp() {
-	tcase "External TCP to the nsc's from router vm-202"
+	local nsc=nsc-vlan
+	test -n "$1" && nsc=$1
+	tcase "External TCP to the NSCs $nsc"
 	local ipm ip
 	for ipm in $(cat /tmp/adr); do
 		ip=$(echo $ipm | cut -d/ -f1)
-		echo | nc -w1 $ip 6000 | grep vlan-nsc || tdie "$pod $1 $2"
+		echo | nc -w1 $ip 6000 | grep $nsc || tdie "$pod $1 $2"
 	done
 }
 
 cmd_tcase_stop_tcp_servers() {
-	tcase "Stop TCP servers in all NSCs"
-	stop_nc_server
+	local nsc=nsc-vlan
+	test -n "$1" && nsc=$1
+	tcase "Stop TCP servers in NSCs $nsc"
+	stop_nc_server $nsc
 }
 
 cmd_tcase_internal_udp() {
-	tcase "Internal pod-to-pods UDP"
-	local pod ipm ip
-	for pod in $(kubectl get pods -l app=vlan-nsc -o name); do
+	local nsc=nsc-vlan
+	test -n "$1" && nsc=$1
+	tcase "Internal pod-to-pods UDP $nsc"
+	local pods=0 pod ipm ip
+	for pod in $(kubectl get pods -l app=$nsc -o name); do
+		pods=$((pods + 1))
 		tlog "IPv4 from $pod"
 		# The server dies after one connect so always start new ones
-		start_nc_server "-u"
+		start_nc_server $nsc "-u"
 		for ipm in $(cat /tmp/adr); do
 			ip=$(echo $ipm | cut -d/ -f1)
 			echo $ip | grep -q : && continue
 			kubectl exec $pod -- sh -c \
-				"echo | nc -w1 -u $ip 6000 | grep vlan-nsc" || tdie "$pod $ip"
+				"echo | nc -w1 -u $ip 6000 | grep $nsc" || tdie "$pod $ip"
 		done
 	done
-	for pod in $(kubectl get pods -l app=vlan-nsc -o name); do
+	test $pods -gt 0 || tdie "No pods app=$nsc"
+	pods=0
+	for pod in $(kubectl get pods -l app=$nsc -o name); do
+		pods=$((pods + 1))
 		tlog "IPv6 from $pod"
 		# The server dies after one connect so always start new ones
-		start_nc_server "-u"
+		start_nc_server $nsc "-u"
 		for ipm in $(cat /tmp/adr); do
 			ip=$(echo $ipm | cut -d/ -f1)
 			echo $ip | grep -q : || continue
 			kubectl exec $pod -- sh -c \
-				"echo | nc -w1 -u $ip 6000 | grep vlan-nsc" || tdie "$pod $ip"
+				"echo | nc -w1 -u $ip 6000 | grep $nsc" || tdie "$pod $ip"
 		done
 	done
+	test $pods -gt 0 || tdie "No pods app=$nsc"
 }
 
 cmd_tcase_external_udp() {
-	tcase "External UDP to the nsc's from router vm-202"
+	local nsc=nsc-vlan
+	test -n "$1" && nsc=$1
+	tcase "External UDP to the NSCs $nsc"
 	local ipm ip
-	start_nc_server "-u"
+	start_nc_server $nsc "-u"
 	for ipm in $(cat /tmp/adr); do
 		ip=$(echo $ipm | cut -d/ -f1)
 		echo $ip | grep -q : && continue
 		tlog "UDP to $ip"
-		echo | nc -w1 -u $ip 6000 | grep vlan-nsc || tdie "$ip"
+		echo | nc -w1 -u $ip 6000 | grep $nsc || tdie "$ip"
 	done
-	start_nc_server "-u"
+	start_nc_server $nsc "-u"
 	for ipm in $(cat /tmp/adr); do
 		ip=$(echo $ipm | cut -d/ -f1)
 		echo $ip | grep -q : || continue
 		tlog "UDP to $ip"
-		echo | nc -w1 -u $ip 6000 | grep vlan-nsc || tdie "$ip"
+		echo | nc -w1 -u $ip 6000 | grep $nsc || tdie "$ip"
 	done
 }
 
