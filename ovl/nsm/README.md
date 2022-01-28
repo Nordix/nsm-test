@@ -77,6 +77,7 @@ NSC's is tested.
 
 Setup NSM and start two NSC. The NSE is started on vm-003.
 The address of first NSC is pinged from second NSC namespace
+For configuration details see [Configuring nse and vpp forwarder to support remote vlan mechanism](../../doc/vpp-forwarder-vlansup-config.md)
 
 ```bash
 log=/tmp/$USER/xcluster.log
@@ -140,8 +141,6 @@ images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/$x:latest
 ```
 
 For building vlan forwarder and required components see [Build nsm components for vlan forwarder using vlan mechanism](../../doc/vlan-forwarder-build.md)
-
-For building vlan forwarder and required components see [Build nsm components for vpp forwarder supporting remote vlan mechanism](../../doc/vpp-forwarder-vlansup-build.md)
 
 ## Data plane (forwarder) selection
 

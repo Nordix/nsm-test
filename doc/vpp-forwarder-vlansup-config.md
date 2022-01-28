@@ -1,31 +1,11 @@
-# Build nsm components for vpp forwarder with remote vlan mechanism support
+# Configuring nse and vpp forwarder to support remote vlan mechanism
 
-This description details the steps of building NSE component locally. The forwarder is already merged to NSM main repository.
+This description details the configuration of [cmd-forwarder-vpp](https://github.com/networkservicemesh/cmd-forwarder-vpp) and [cmd-nse-remote-vlan](https://github.com/networkservicemesh/cmd-forwarder-vpp) components to support vlan.
+The diagram below shows the relation and operation of these NSM componenets in high level.
 
-## Building NSE Element With Remote VLAN Mechanism Support
+![vrm operation](https://raw.githubusercontent.com/Nordix/nsm-test/09408bfbea6380eda201606cbfb5182a14234634/doc/vrm.svg "remote vlan mechanism in NSM")
 
-- Clone the `nsm-nse-generic` from Nordix and select the `vlansup-dev` development branch.
-
-```bash
-git clone git@github.com:Nordix/nsm-nse-generic.git
-cd nsm-nse-generic
-git checkout vlansup-dev
-```
-
-- Build the source and the docker image.
-
-```bash
-go build ./...
-docker build . --tag registry.nordix.org/cloud-native/nsm/cmd-nse-vlan:vlansup
-```
-
- Upload to the local registry (optional)
-
-```bash
-images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-nse-vlan:vlansup
-```
-
-### Configure NSE
+## Configure NSE
 
 The NSE in this setup belong to control plain of NSM and playing multiple roles;
 
@@ -52,10 +32,10 @@ spec:
 
 - The NSE as IPAM provider - can be configured with the `NSM_CIDR_PREFIX` and `NSM_IPV6_PREFIX` environment variables.
 
-- The NSE as service provider - provides multiple services for NSC to connect to. The list of supported services can be set by `NSM_SERVICES` environment variable. Example; "finance-bridge { vlan: 100; via: gw1 }, finance-bridge { vlan: 200; via: gw2 }, shadow-gw { vlan: 1200; via: gw2 }" The service specified by "finance-bridge { vlan: 100; via: gw1 }" in this example has the service name "finance-bridge" and the label via="gw-1".
+- The NSE as service provider - the NSE provides multiple services for network service client. The list of supported services can be set by `NSM_SERVICES` environment variable. Example; "finance-bridge { vlan: 100; via: gw1 }, finance-bridge { vlan: 200; via: gw2 }, shadow-gw { vlan: 1200; via: gw2 }" The service specified by "finance-bridge { vlan: 100; via: gw1 }" in this example has the service name "finance-bridge" and the label via="gw-1".
 NSC can request for a service using the service name in its `NSM_NETWORK_SERVICES` environment variable (Example; "kernel://finance-bridge/nsm-1"). The forwarder can select a base interface for the 'via' label based on its mapping (see section [Configure VPP Forwarder](https://github.com/Nordix/nsm-test/blob/master/doc/vpp-forwarder-vlansup-build.md#configure-vpp-forwarder))
 
-### Configure VPP Forwarder
+## Configure VPP Forwarder
 
 To use VLAN tagging a base interface must be specified. A new way of configuration of base interface is supported by mapping 'via' labels to interface names. The NSE configures the 'via' label and sends it in response to connection request to the forwarder. The forwarder selects the interface based on this label by mapping it to the interface name.
 
