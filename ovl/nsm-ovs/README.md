@@ -96,29 +96,57 @@ __nvm=4 xcadmin k8s_test --cni=calico nsm-ovs > $log
 
 ## Build
 
-Until a release image exists the forwarder-ovs and the nse must be
-built locally.
+Until NSM images exists they must be built locally.
+
+Checkout a remote branch;
+```
+git branch -a
+git checkout release/v1.1.1
+```
 
 ```
 #cd $GOPATH/src/github.com/networkservicemesh
-#rm -r cmd-forwarder-ovs
-#git clone --depth 1 https://github.com/networkservicemesh/cmd-forwarder-ovs.git
+#git clone https://github.com/networkservicemesh/cmd-nsmgr.git
+cd $GOPATH/src/github.com/networkservicemesh/cmd-nsmgr
+docker build --tag registry.nordix.org/cloud-native/nsm/cmd-nsmgr:local .
+images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-nsmgr:local
+
+#cd $GOPATH/src/github.com/networkservicemesh
+#git clone https://github.com/networkservicemesh/cmd-registry-k8s.git
+cd $GOPATH/src/github.com/networkservicemesh/cmd-registry-k8s
+docker build --tag registry.nordix.org/cloud-native/nsm/cmd-registry-k8s:local .
+images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-registry-k8s:local
+
+#cd $GOPATH/src/github.com/networkservicemesh
+#git clone https://github.com/networkservicemesh/cmd-forwarder-ovs.git
 cd $GOPATH/src/github.com/networkservicemesh/cmd-forwarder-ovs
-docker build --tag registry.nordix.org/cloud-native/nsm/cmd-forwarder-ovs:vlansup .
-images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-forwarder-ovs:vlansup
+git pull
+docker build --tag registry.nordix.org/cloud-native/nsm/cmd-forwarder-ovs:local .
+images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-forwarder-ovs:local
 # use-host-ovs;
-docker build --tag registry.nordix.org/cloud-native/nsm/cmd-forwarder-host-ovs:vlansup -f Dockerfile.use-host-ovs .
-images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-forwarder-host-ovs:vlansup
+docker build --tag registry.nordix.org/cloud-native/nsm/cmd-forwarder-host-ovs:local -f Dockerfile.use-host-ovs .
+images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-forwarder-host-ovs:local
+
+#cd $GOPATH/src/github.com/networkservicemesh
+#git clone https://github.com/networkservicemesh/cmd-forwarder-vpp.git
+cd $GOPATH/src/github.com/networkservicemesh/cmd-forwarder-vpp
+docker build --tag registry.nordix.org/cloud-native/nsm/cmd-forwarder-vpp:local .
+images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-forwarder-vpp:local
+
+#cd $GOPATH/src/github.com/networkservicemesh
+#git clone https://github.com/networkservicemesh/cmd-nse-remote-vlan.git
+cd $GOPATH/src/github.com/networkservicemesh/cmd-nse-remote-vlan
+docker build --tag registry.nordix.org/cloud-native/nsm/cmd-nse-remote-vlan:local .
+images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-nse-remote-vlan:local
+
+#cd $GOPATH/src/github.com/networkservicemesh
+#git clone https://github.com/networkservicemesh/cmd-nsc.git
+cd $GOPATH/src/github.com/networkservicemesh/cmd-nsc
+docker build --tag registry.nordix.org/cloud-native/nsm/cmd-nsc:local .
+images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-nsc:local
 ```
 
-```
-#cd $GOPATH/src/github.com/networkservicemesh
-#rm -r cmd-nse-remote-vlan
-#git clone --depth 1 https://github.com/networkservicemesh/cmd-nse-remote-vlan.git
-cd $GOPATH/src/github.com/networkservicemesh/cmd-nse-remote-vlan
-docker build --tag registry.nordix.org/cloud-native/nsm/cmd-nse-remote-vlan:vlansup
-images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-nse-remote-vlan:vlansup
-```
+
 
 The manifests are taken from the [deployments-k8s](https://github.com/networkservicemesh/deployments-k8s)
 NSM repo with minor adaptations for `xcluster`.

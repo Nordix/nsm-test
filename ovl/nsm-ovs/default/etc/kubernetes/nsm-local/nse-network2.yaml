@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nse-network2
+  labels:
+    app: nse-network2
+spec:
+  selector:
+    matchLabels:
+      app: nse-network2
+  template:
+    metadata:
+      labels:
+        app: nse-network2
+    spec:
+      containers:
+        - name: nse
+          image: registry.nordix.org/cloud-native/nsm/cmd-nse-remote-vlan:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SPIFFE_ENDPOINT_SOCKET
+              value: unix:///run/spire/sockets/agent.sock
+            - name: NSE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NSE_CONNECT_TO
+              value: unix:///var/lib/networkservicemesh/nsm.io.sock
+            - name: NSM_SERVICES
+              value: "network2 { vlan: 200; via: service.domain.2}"
+            - name: NSM_CIDR_PREFIX
+              value: "169.254.102.0/24"
+            - name: NSM_IPV6_PREFIX
+              value: "100:102::/64"
+          volumeMounts:
+            - name: spire-agent-socket
+              mountPath: /run/spire/sockets
+              readOnly: true
+            - name: nsm-socket
+              mountPath: /var/lib/networkservicemesh
+              readOnly: false
+      volumes:
+        - name: spire-agent-socket
+          hostPath:
+            path: /run/spire/sockets
+            type: Directory
+        - name: nsm-socket
+          hostPath:
+            path: /var/lib/networkservicemesh
+            type: DirectoryOrCreate

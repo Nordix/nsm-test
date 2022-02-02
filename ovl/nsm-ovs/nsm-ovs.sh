@@ -32,12 +32,10 @@ dbg() {
 	test -n "$__verbose" && echo "$prg: $*" >&2
 }
 
-##  env
-##    Print environment.
+##   env
+##     Print environment.
 ##
 cmd_env() {
-
-	test -n "$__tag" || __tag="registry.nordix.org/cloud-native/nsm-ovs:latest"
 
 	if test "$cmd" = "env"; then
 		set | grep -E '^(__.*)='
@@ -53,7 +51,7 @@ cmd_env() {
 }
 
 ##   test --list
-##   test [--xterm] [test...] > logfile
+##   test [--xterm] [--no-stop] [--local] [test...] > logfile
 ##     Exec tests
 ##
 cmd_test() {
@@ -72,7 +70,7 @@ cmd_test() {
             test_$t
         done
     else
-		test_default
+		test_basic
     fi      
 
     now=$(date +%s)
@@ -83,6 +81,7 @@ cmd_test() {
 test_start_empty() {
 	test -n "$__mode" || __mode=dual-stack
 	export xcluster___mode=$__mode
+	export xcluster___local=$__local
 	xcluster_prep $__mode
 	export TOPOLOGY=multilan
 	. $($XCLUSTER ovld network-topology)/$TOPOLOGY/Envsettings
@@ -104,6 +103,8 @@ test_start_empty() {
 	otcw ifup
 }
 
+##   test start
+##     Start cluster with NSM.
 test_start() {
 	# Avoid "Illegal instruction" error with -cpu host
 	# accel=kvm,kernel_irqchip=split is needed for iommu
@@ -127,7 +128,9 @@ test_start() {
 	test "$xcluster_NSM_FORWARDER" = "vpp" && otc 1 vpp_version
 }
 
-test_default() {
+##   test basic (default)
+##     Ping/TCP test
+test_basic() {
 	tlog "=== nsm-ovs: Ping/TCP test forwarder=$xcluster_NSM_FORWARDER"
 	test_start
 	otc 1 start_nse
@@ -144,6 +147,8 @@ test_default() {
 	xcluster_stop
 }
 
+##   test udp
+##     UDP test
 test_udp() {
 	tlog "=== nsm-ovs: UDP test forwarder=$xcluster_NSM_FORWARDER"
 	test_start
@@ -158,6 +163,8 @@ test_udp() {
 	xcluster_stop
 }
 
+##   test multivlan
+##     Multiple vlan-tags
 test_multivlan() {
 	tlog "=== nsm-ovs: Multiple vlan-tags forwarder=$xcluster_NSM_FORWARDER"
 	test_start
@@ -172,7 +179,7 @@ test_multivlan() {
 	xcluster_stop
 }
 
-
+##
 . $($XCLUSTER ovld test)/default/usr/lib/xctest
 indent=''
 

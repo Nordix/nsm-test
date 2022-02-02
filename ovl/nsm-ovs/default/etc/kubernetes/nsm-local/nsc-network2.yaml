@@ -1,49 +1,48 @@
-# Source: nsm/templates/forwarder-vpp.yaml
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: forwarder-vpp
+  name: nsc-network2
   labels:
-    app: forwarder-vpp
+    app: nsc-network2
 spec:
   selector:
     matchLabels:
-      app: forwarder-vpp
+      app: nsc-network2
   template:
     metadata:
       labels:
-        app: forwarder-vpp
+        app: nsc-network2
     spec:
-      hostNetwork: true
       containers:
-        - image: registry.nordix.org/cloud-native/nsm/cmd-forwarder-vpp:vlansup-dev
-          imagePullPolicy: IfNotPresent
-          name: forwarder-vpp
+        - name: nsc
           securityContext:
             privileged: true
+          image: registry.nordix.org/cloud-native/nsm/cmd-nsc:local
+          imagePullPolicy: IfNotPresent
           env:
-            - name: SPIFFE_ENDPOINT_SOCKET
-              value: unix:///run/spire/sockets/agent.sock
-            - name: NSM_TUNNEL_IP
+            - name: MY_NODE_NAME
               valueFrom:
                 fieldRef:
-                  fieldPath: status.podIP
-            - name: NSM_CONNECT_TO
-              value: unix:///var/lib/networkservicemesh/nsm.io.sock
+                  fieldPath: spec.nodeName
+            - name: SPIFFE_ENDPOINT_SOCKET
+              value: unix:///run/spire/sockets/agent.sock
             - name: NSM_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: NSM_DEVICE_SELECTOR_FILE
-              value: /etc/nsm/DomainConfigFile
+            - name: NSM_NETWORK_SERVICES
+              value: kernel://network2/nsm-1
+            - name: NSM_DIAL_TIMEOUT
+              value: "30s"
+            - name: NSM_REQUEST_TIMEOUT
+              value: "300s"
           volumeMounts:
             - name: spire-agent-socket
               mountPath: /run/spire/sockets
               readOnly: true
             - name: nsm-socket
               mountPath: /var/lib/networkservicemesh
-            - name: nsm-config
-              mountPath: /etc/nsm
+              readOnly: true
       volumes:
         - name: spire-agent-socket
           hostPath:
@@ -53,8 +52,3 @@ spec:
           hostPath:
             path: /var/lib/networkservicemesh
             type: DirectoryOrCreate
-        - name: nsm-config
-          hostPath:
-            path: /etc/nsm/
-            type: DirectoryOrCreate
----

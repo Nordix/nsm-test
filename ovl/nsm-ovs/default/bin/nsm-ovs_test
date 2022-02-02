@@ -12,7 +12,7 @@ dir=$(dirname $0); dir=$(readlink -f $dir)
 me=$dir/$prg
 tmp=/tmp/${prg}_$$
 test -n "$DOMAIN" || DOMAIN=xcluster
-yamld=/etc/kubernetes/nsm-ovs
+yamld=/etc/kubernetes/nsm
 
 die() {
 	echo "ERROR: $*" >&2
@@ -56,15 +56,19 @@ cmd_tcase_ifup() {
 }
 
 cmd_tcase_start_nsm() {
-	tcase "Start NSM base"
-	kubectl apply -f /etc/kubernetes/nsm/nsm-base.yaml || tdie
+	if echo $yamld | grep -q local; then
+		tcase "Start NSM base with LOCAL images"
+	else
+		tcase "Start NSM base"
+	fi
+	kubectl apply -f $yamld/nsm-base.yaml || tdie
 	test_deployment nsm-registry 180
 	test_daemonset nsmgr 30
 }
 
 cmd_tcase_start_forwarder() {
-	local f=/etc/kubernetes/nsm/forwarder-$NSM_FORWARDER.yaml
-	test "$HOST_OVS" = "yes" && f=/etc/kubernetes/nsm/forwarder-host-ovs.yaml
+	local f=$yamld/forwarder-$NSM_FORWARDER.yaml
+	test "$HOST_OVS" = "yes" && f=$yamld/forwarder-host-ovs.yaml
 	tcase "Start NSM forwarder-$(basename $f)"
 	test -r $f || tdie "Not readable [$f]"
 	kubectl apply -f $f || tdie
@@ -75,7 +79,7 @@ cmd_tcase_start_nse() {
 	local nse=nse-vlan
 	test -n "$1" && nse=$1
 	tcase "Start NSE $nse"
-	local f=/etc/kubernetes/nsm/$nse.yaml
+	local f=$yamld/$nse.yaml
 	test -r $f || tdie "Not readable [$f]"
 	kubectl apply -f $f || tdie
 	test_deployment $nse 120 || tdie
@@ -85,7 +89,7 @@ cmd_tcase_start_nsc() {
 	local nsc=nsc-vlan
 	test -n "$1" && nsc=$1
 	tcase "Start NSC $nsc"
-	kubectl apply -f /etc/kubernetes/nsm/$nsc.yaml || tdie
+	kubectl apply -f $yamld/$nsc.yaml || tdie
 	test_daemonset $nsc 120 || tdie
 }
 
@@ -286,6 +290,7 @@ cmd_tcase_vpp_version() {
 . /usr/lib/xctest
 indent='  '
 
+test "$__local" = "yes" && yamld=$yamld-local
 
 # Get the command
 cmd=$1
