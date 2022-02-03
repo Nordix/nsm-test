@@ -84,7 +84,6 @@ cmd_test() {
 test_start_empty() {
 	test -n "$__mode" || __mode=dual-stack
 	export xcluster___mode=$__mode
-	export xcluster___local=$__local
 	xcluster_prep $__mode
 	export TOPOLOGY=multilan
 	. $($XCLUSTER ovld network-topology)/$TOPOLOGY/Envsettings
@@ -98,6 +97,7 @@ test_start_empty() {
 	export __mem=3072
 	test -n "$__nvm" || __nvm=3
 	export __nvm
+	test "$__local" = "yes" && export __local
 	xcluster_start network-topology nsm-ovs spire lspci $@
 
 	otc 1 check_namespaces
@@ -171,14 +171,14 @@ test_udp() {
 test_multivlan() {
 	tlog "=== nsm-ovs: Multiple vlan-tags forwarder=$xcluster_NSM_FORWARDER"
 	test_start
-	otc 1 "start_nse nse-vlan"
-	otc 1 "start_nsc nsc-vlan"
-	otc 1 "collect_addresses nsc-vlan"
+	otc 1 start_nse
+	otc 1 start_nsc
+	otc 1 collect_addresses
 	otc 1 internal_ping
 	otc 1 "start_nse nse-network2"
 	otc 1 "start_nsc nsc-network2"
 	otc 1 "collect_addresses nsc-network2"
-	otc 1 internal_ping
+	otc 1 "internal_ping nsc-network2"
 	xcluster_stop
 }
 ##
@@ -191,7 +191,7 @@ cmd_clone_nsm() {
 	cd $__nsm_dir
 	local c
 	for c in cmd-nsmgr cmd-registry-k8s cmd-forwarder-ovs cmd-forwarder-vpp \
-		cmd-nsc cmd-nse-remote-vlan deployments-k8s; do
+		cmd-nsc cmd-nse-remote-vlan deployments-k8s cmd-exclude-prefixes-k8s; do
 		if test -d "$__nsm_dir/$c"; then
 			echo "Already cloned [$c]"
 			continue
@@ -199,40 +199,51 @@ cmd_clone_nsm() {
 		git clone https://github.com/networkservicemesh/$c.git || die "clone"
 	done
 }
-##   generate_manifests [--dest=/tmp/$USER/nsm-manifests]
+##   generate_manifests [--branch=main] [--dest=/tmp/$USER/nsm-manifests]
 ##     Generate manifests from deployments-k8s/apps
 cmd_generate_manifests() {
 	cmd_env
 	local apps=$__nsm_dir/deployments-k8s/apps
 	test -d $apps || die "Not a directory [$apps]"
+	test -n "$__branch" || __branch=main
+	cd $apps/..
+	git checkout $__branch > /dev/null
+	git pull > /dev/null || die "git pull"
 	test -n "$__dest" || __dest=/tmp/$USER/nsm-manifests
 	mkdir -p $__dest || die "mkdir -p $__dest"
 	local c
 	for c in forwarder-host-ovs forwarder-ovs forwarder-vpp nse-remote-vlan \
-		nsmgr registry-k8s; do
+		nsmgr registry-k8s nsc-kernel; do
 		test -d $apps/$c || die "Not a directory [$apps/$c]"
 		kubectl kustomize $apps/$c > $__dest/$c.yaml
 	done
-	cat $__dest/nsmgr.yaml $__dest/registry-k8s.yaml > $__dest/nsm-base.yaml
-	ln -s nse-remote-vlan.yaml $__dest/nse-vlan.yaml
 	echo "Manifests in [$__dest]"
 }
-##   compare_manifests [--local] [--dest=/tmp/$USER/nsm-manifests]
+##   compare_manifests [--dest=/tmp/$USER/nsm-manifests]
 ##     Compare generated manifests with the ones in this ovl.
 cmd_compare_manifests() {
 	which meld > /dev/null || die "Can't execute meld"
 	test -n "$__dest" || __dest=/tmp/$USER/nsm-manifests
 	local sdir=$dir/default/etc/kubernetes/nsm
-	test "$__local" = "yes" && sdir=$dir/default/etc/kubernetes/nsm-local
 	local c
-	for c in forwarder-host-ovs forwarder-ovs forwarder-vpp nse-vlan \
-		nsm-base; do
+	for c in forwarder-host-ovs forwarder-ovs forwarder-vpp nsmgr \
+		registry-k8s nse-remote-vlan; do
 		test -r $__dest/$c.yaml || die "Not readable [$__dest/$c.yaml]"
 		test -r $sdir/$c.yaml || die "Not readable [$sdir/$c.yaml]"
 		meld $__dest/$c.yaml $sdir/$c.yaml
 	done
 }
-
+##   set_local_image [yaml-files...]
+##     Change image: to locally built ones
+cmd_set_local_image() {
+	local n
+	for n in $@; do
+		test -r $n || die "Not readable [$n]"
+		test -w $n || die "Not writable [$n]"
+		echo "=== $n"
+		sed -i -E -e 's,image: ghcr.io/networkservicemesh/ci/([^:]+):.*,image: registry.nordix.org/cloud-native/nsm/\1:local,' $n
+	done
+}
 ##   build_nsm_image [--nsm-dir=dir] [--branch=main] <image>
 ##     Build a NSM image and upload it to the local registry
 cmd_build_nsm_image() {
@@ -256,7 +267,7 @@ cmd_build_nsm_image() {
 cmd_build_nsm() {
 	local i
 	for i in cmd-nsmgr cmd-registry-k8s cmd-forwarder-ovs cmd-forwarder-vpp \
-		cmd-nsc cmd-nse-remote-vlan; do
+		cmd-nsc cmd-nse-remote-vlan cmd-exclude-prefixes-k8s; do
 		echo "==== Building [$i]"
 		cmd_build_nsm_image $i
 	done

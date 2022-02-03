@@ -1,0 +1,116 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: networkserviceendpoints.networkservicemesh.io
+spec:
+  conversion:
+    strategy: None
+  group: networkservicemesh.io
+  names:
+    kind: NetworkServiceEndpoint
+    listKind: NetworkServiceEndpointList
+    plural: networkserviceendpoints
+    shortNames:
+    - nse
+    - nses
+    singular: networkserviceendpoint
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            x-kubernetes-preserve-unknown-fields: true
+        type: object
+    served: true
+    storage: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: networkservices.networkservicemesh.io
+spec:
+  conversion:
+    strategy: None
+  group: networkservicemesh.io
+  names:
+    kind: NetworkService
+    listKind: NetworkServiceList
+    plural: networkservices
+    shortNames:
+    - netsvc
+    - netsvcs
+    singular: networkservice
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            x-kubernetes-preserve-unknown-fields: true
+        type: object
+    served: true
+    storage: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nsm-registry
+spec:
+  ports:
+  - name: registry
+    port: 5002
+    protocol: TCP
+    targetPort: 5002
+  selector:
+    app: registry
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: registry
+  name: registry-k8s
+spec:
+  selector:
+    matchLabels:
+      app: registry
+  template:
+    metadata:
+      labels:
+        app: registry
+    spec:
+      containers:
+      - env:
+        - name: SPIFFE_ENDPOINT_SOCKET
+          value: unix:///run/spire/sockets/agent.sock
+        - name: REGISTRY_K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: REGISTRY_K8S_LOG_LEVEL
+          value: TRACE
+        - name: REGISTRY_K8S_LISTEN_ON
+          value: tcp://:5002
+        - name: REGISTRY_K8S_PROXY_REGISTRY_URL
+          value: nsmgr-proxy:5004
+        image: ghcr.io/networkservicemesh/ci/cmd-registry-k8s:07ba23b
+        imagePullPolicy: IfNotPresent
+        name: registry
+        ports:
+        - containerPort: 5002
+          hostPort: 5002
+        volumeMounts:
+        - mountPath: /run/spire/sockets
+          name: spire-agent-socket
+      volumes:
+      - hostPath:
+          path: /run/spire/sockets
+          type: Directory
+        name: spire-agent-socket
+      - hostPath:
+          path: /var/lib/networkservicemesh
+          type: DirectoryOrCreate
+        name: nsm-socket

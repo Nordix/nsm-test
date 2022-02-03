@@ -1,0 +1,85 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: nsmgr
+  name: nsmgr
+spec:
+  selector:
+    matchLabels:
+      app: nsmgr
+  template:
+    metadata:
+      labels:
+        app: nsmgr
+        spiffe.io/spiffe-id: "true"
+    spec:
+      containers:
+      - env:
+        - name: SPIFFE_ENDPOINT_SOCKET
+          value: unix:///run/spire/sockets/agent.sock
+        - name: NSM_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NSM_LOG_LEVEL
+          value: TRACE
+        - name: NSM_REGISTRY_URL
+          value: nsm-registry:5002
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: NSM_LISTEN_ON
+          value: unix:///var/lib/networkservicemesh/nsm.io.sock,tcp://:5001
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        image: ghcr.io/networkservicemesh/ci/cmd-nsmgr:b08da85
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - /bin/grpc-health-probe
+            - -spiffe
+            - -addr=:5001
+        name: nsmgr
+        ports:
+        - containerPort: 5001
+          hostPort: 5001
+        readinessProbe:
+          exec:
+            command:
+            - /bin/grpc-health-probe
+            - -spiffe
+            - -addr=:5001
+        volumeMounts:
+        - mountPath: /run/spire/sockets
+          name: spire-agent-socket
+          readOnly: true
+        - mountPath: /var/lib/networkservicemesh
+          name: nsm-socket
+        - mountPath: /var/lib/networkservicemesh/config/
+          name: exclude-prefixes-volume
+      - env:
+        - name: NSM_LOG_LEVEL
+          value: TRACE
+        image: ghcr.io/networkservicemesh/ci/cmd-exclude-prefixes-k8s:7c411eb
+        imagePullPolicy: IfNotPresent
+        name: exclude-prefixes
+        volumeMounts:
+        - mountPath: /var/lib/networkservicemesh/config/
+          name: exclude-prefixes-volume
+      volumes:
+      - hostPath:
+          path: /run/spire/sockets
+          type: Directory
+        name: spire-agent-socket
+      - hostPath:
+          path: /var/lib/networkservicemesh
+          type: DirectoryOrCreate
+        name: nsm-socket
+      - emptyDir: {}
+        name: exclude-prefixes-volume

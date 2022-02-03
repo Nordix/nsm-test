@@ -1,10 +1,9 @@
-# Source: nsm/templates/forwarder-vpp.yaml
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: forwarder-vpp
   labels:
     app: forwarder-vpp
+  name: forwarder-vpp
 spec:
   selector:
     matchLabels:
@@ -14,47 +13,81 @@ spec:
       labels:
         app: forwarder-vpp
     spec:
-      hostNetwork: true
       containers:
-        - image: registry.nordix.org/cloud-native/nsm/cmd-forwarder-vpp:vlansup-dev
-          imagePullPolicy: IfNotPresent
-          name: forwarder-vpp
-          securityContext:
-            privileged: true
-          env:
-            - name: SPIFFE_ENDPOINT_SOCKET
-              value: unix:///run/spire/sockets/agent.sock
-            - name: NSM_TUNNEL_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-            - name: NSM_CONNECT_TO
-              value: unix:///var/lib/networkservicemesh/nsm.io.sock
-            - name: NSM_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: NSM_DEVICE_SELECTOR_FILE
-              value: /etc/nsm/DomainConfigFile
-          volumeMounts:
-            - name: spire-agent-socket
-              mountPath: /run/spire/sockets
-              readOnly: true
-            - name: nsm-socket
-              mountPath: /var/lib/networkservicemesh
-            - name: nsm-config
-              mountPath: /etc/nsm
-      volumes:
-        - name: spire-agent-socket
-          hostPath:
-            path: /run/spire/sockets
-            type: Directory
-        - name: nsm-socket
-          hostPath:
-            path: /var/lib/networkservicemesh
-            type: DirectoryOrCreate
+      - env:
+        - name: SPIFFE_ENDPOINT_SOCKET
+          value: unix:///run/spire/sockets/agent.sock
+        - name: NSM_LOG_LEVEL
+          value: TRACE
+        - name: NSM_TUNNEL_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: NSM_CONNECT_TO
+          value: unix:///var/lib/networkservicemesh/nsm.io.sock
+        - name: NSM_LISTEN_ON
+          value: unix:///listen.on.sock
+        - name: NSM_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NSM_DEVICE_SELECTOR_FILE
+          value: /etc/nsm/DomainConfigFile
+        image: ghcr.io/networkservicemesh/ci/cmd-forwarder-vpp:eec9f48
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - /bin/grpc-health-probe
+            - -spiffe
+            - -addr=unix:///listen.on.sock
+        name: forwarder-vpp
+        readinessProbe:
+          exec:
+            command:
+            - /bin/grpc-health-probe
+            - -spiffe
+            - -addr=unix:///listen.on.sock
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /run/spire/sockets
+          name: spire-agent-socket
+          readOnly: true
+        - mountPath: /var/lib/networkservicemesh
+          name: nsm-socket
+        - mountPath: /var/lib/kubelet
+          name: kubelet-socket
+        - mountPath: /host/sys/fs/cgroup
+          name: cgroup
+        - mountPath: /host/dev/vfio
+          name: vfio
         - name: nsm-config
-          hostPath:
-            path: /etc/nsm/
-            type: DirectoryOrCreate
----
+          mountPath: /etc/nsm
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      volumes:
+      - hostPath:
+          path: /run/spire/sockets
+          type: Directory
+        name: spire-agent-socket
+      - hostPath:
+          path: /var/lib/networkservicemesh
+          type: DirectoryOrCreate
+        name: nsm-socket
+      - hostPath:
+          path: /var/lib/kubelet
+          type: Directory
+        name: kubelet-socket
+      - hostPath:
+          path: /sys/fs/cgroup
+          type: Directory
+        name: cgroup
+      - hostPath:
+          path: /dev/vfio
+          type: DirectoryOrCreate
+        name: vfio
+      - name: nsm-config
+        hostPath:
+          path: /etc/nsm/
+          type: DirectoryOrCreate

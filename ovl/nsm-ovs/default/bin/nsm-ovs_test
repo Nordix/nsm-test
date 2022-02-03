@@ -61,8 +61,10 @@ cmd_tcase_start_nsm() {
 	else
 		tcase "Start NSM base"
 	fi
-	kubectl apply -f $yamld/nsm-base.yaml || tdie
-	test_deployment nsm-registry 180
+	kubectl apply -f $yamld/registry-k8s.yaml || tdie
+	kubectl apply -f $yamld/nsmgr.yaml || tdie
+	#kubectl apply -f $yamld/nsm-base.yaml || tdie
+	test_deployment registry-k8s 180
 	test_daemonset nsmgr 30
 }
 
@@ -76,7 +78,7 @@ cmd_tcase_start_forwarder() {
 }
 
 cmd_tcase_start_nse() {
-	local nse=nse-vlan
+	local nse=nse-remote-vlan
 	test -n "$1" && nse=$1
 	tcase "Start NSE $nse"
 	local f=$yamld/$nse.yaml
@@ -86,22 +88,22 @@ cmd_tcase_start_nse() {
 }
 
 cmd_tcase_start_nsc() {
-	local nsc=nsc-vlan
+	local nsc=nsc-kernel
 	test -n "$1" && nsc=$1
 	tcase "Start NSC $nsc"
 	kubectl apply -f $yamld/$nsc.yaml || tdie
-	test_daemonset $nsc 120 || tdie
+	test_deployment $nsc 120 || tdie
 }
 
 cmd_tcase_collect_addresses() {
-	local nsc=nsc-vlan
+	local nsc=nsc-kernel
 	test -n "$1" && nsc=$1
 	tcase "Collect NSC addresses from $nsc"
 	local pod
 	mkdir -p $tmp
 	for pod in $(kubectl get pods -l app=$nsc -o name); do
 		echo $pod >> $tmp/out
-		tex "kubectl exec $pod -- ip addr show dev nsm-1 > /dev/null 2>&1" || tdie nsm-1
+		tex "kubectl exec $pod -- ip addr show dev nsm-1 > /dev/null 2>&1" || tdie "No nsm-1 in $pod"
 		kubectl exec $pod -- ip addr show dev nsm-1 >> $tmp/out || tdie
 	done
 	cat $tmp/out
@@ -111,13 +113,15 @@ cmd_tcase_collect_addresses() {
 }
 
 cmd_tcase_internal_ping() {
-	tcase "Ping pod-to-pods"
+	local nsc=nsc-kernel
+	test -n "$1" && nsc=$1
+	tcase "Ping pod-to-pods in $nsc"
 	local pod ipm ip
 	for ipm in $(cat /tmp/adr); do
 		ip=$(echo $ipm | cut -d/ -f1)
 		tlog "ping address $ip"
 	done
-	for pod in $(kubectl get pods -l app=vlan-nsc -o name); do
+	for pod in $(kubectl get pods -l app=$nsc -o name); do
 		for ipm in $(cat /tmp/adr); do
 			ip=$(echo $ipm | cut -d/ -f1)
 			kubectl exec $pod -- ping -W1 -c1 $ip || tdie "$pod $ip"
@@ -180,14 +184,14 @@ stop_nc_server() {
 }
 
 cmd_tcase_start_tcp_servers() {
-	local nsc=nsc-vlan
+	local nsc=nsc-kernel
 	test -n "$1" && nsc=$1
 	tcase "Start TCP servers in NSCs $nsc"
 	start_nc_server $nsc
 }
 
 cmd_tcase_internal_tcp() {
-	local nsc=nsc-vlan
+	local nsc=nsc-kernel
 	test -n "$1" && nsc=$1
 	tcase "Internal pod-to-pods TCP $nsc"
 	local pods=0 pod ipm ip
@@ -203,7 +207,7 @@ cmd_tcase_internal_tcp() {
 }
 
 cmd_tcase_external_tcp() {
-	local nsc=nsc-vlan
+	local nsc=nsc-kernel
 	test -n "$1" && nsc=$1
 	tcase "External TCP to the NSCs $nsc"
 	local ipm ip
@@ -214,14 +218,14 @@ cmd_tcase_external_tcp() {
 }
 
 cmd_tcase_stop_tcp_servers() {
-	local nsc=nsc-vlan
+	local nsc=nsc-kernel
 	test -n "$1" && nsc=$1
 	tcase "Stop TCP servers in NSCs $nsc"
 	stop_nc_server $nsc
 }
 
 cmd_tcase_internal_udp() {
-	local nsc=nsc-vlan
+	local nsc=nsc-kernel
 	test -n "$1" && nsc=$1
 	tcase "Internal pod-to-pods UDP $nsc"
 	local pods=0 pod ipm ip
@@ -255,7 +259,7 @@ cmd_tcase_internal_udp() {
 }
 
 cmd_tcase_external_udp() {
-	local nsc=nsc-vlan
+	local nsc=nsc-kernel
 	test -n "$1" && nsc=$1
 	tcase "External UDP to the NSCs $nsc"
 	local ipm ip

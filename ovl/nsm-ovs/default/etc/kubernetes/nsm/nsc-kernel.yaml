@@ -2,17 +2,17 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: nsc-network2
-  name: nsc-network2
+    app: nsc-kernel
+  name: nsc-kernel
 spec:
   selector:
     matchLabels:
-      app: nsc-network2
+      app: nsc-kernel
   replicas: 4
   template:
     metadata:
       labels:
-        app: nsc-network2
+        app: nsc-kernel
     spec:
       containers:
       - env:
@@ -25,7 +25,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: NSM_NETWORK_SERVICES
-          value: kernel://network2/nsm-1
+          value: kernel://finance-bridge/nsm-1
         image: ghcr.io/networkservicemesh/ci/cmd-nsc:ffab737
         imagePullPolicy: IfNotPresent
         name: nsc
