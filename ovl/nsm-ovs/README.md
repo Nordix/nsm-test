@@ -1,13 +1,15 @@
 # Xcluster/ovl - nsm-ovs
 
-NSM with [forwarder-ovs](https://github.com/networkservicemesh/cmd-forwarder-ovs).
+Originally this ovl was a test of the 
+[forwarder-ovs](https://github.com/networkservicemesh/cmd-forwarder-ovs)
+(hence the name), but it has become a generic ovl for NSM start, test and build.
 
 The same network-setup as for [ovl/nsm-vlan-dpdk](../nsm-vlan-dpdk) is used;
 
 <img src="../nsm-vlan-dpdk/multilan.svg" alt="NSM network-topology" width="70%" />
 
 
-Most (all?) forwarder-ovs nsm examples says that sr-iov is required,
+Most (all?) forwarder-ovs examples in NSM says that sr-iov is required,
 but it is not so. Sr-iov usage is dictated by the presence of a
 [SRIOVConfigFile](https://github.com/networkservicemesh/cmd-forwarder-ovs/blob/8d27622bc2233b15912ca05a6451257b2d728f39/main.go#L271-L275).
 
@@ -56,22 +58,24 @@ Prepare [ovl/spire](https://github.com/Nordix/xcluster/tree/master/ovl/spire).
 
 Load the local image registry;
 ```bash
-cdo nsm-ovs
-log=/tmp/$USER/xcluster.log   # (assumed to be set)
-# Pre-load the local registry;
-for n in $(images lreg_missingimages .); do
-  images lreg_cache $n
-done
-# Refresh local registry (when needed);
-for n in $(images getimages .); do
-  images lreg_cache $n
-done
+images lreg_preload k8s-pv
+images lreg_preload spire
+images lreg_preload nsm-ovs
+#images lreg_preload k8s-cni-calico
 ```
 
-The `forwarder-ovs` start ovs itself by default. This may be
-undesirable and it can use the ovs on the host instead. This requires
-another image and slightly different configuration. In xcluster you
-can use `export xcluster_HOST_OVS=yes`.
+Basic test;
+```
+#export xcluster_NSM_FORWARDER=vpp  # "ovs" is default
+#export xcluster_HOST_OVS=yes       # Use ovs on the host
+./nsm-ovs.sh test > $log
+# Or use locally built images (see below);
+./nsm-ovs.sh test --local > $log
+# Or;
+__local=yes __nvm=4 xcadmin k8s_test --cni=calico nsm-ovs > $log
+# Optional (takes some time because of timeouts)
+./nsm-ovs.sh test udp > $log
+```
 
 The tests starts `spire` and the NSM base (nsmgr and registry). Then a
 forwarder and NSE is selected based on the `xcluster_NSM_FORWARDER`
@@ -82,73 +86,49 @@ tested between all PODs internally. A vlan tag=100 is setup on router
 `vm-202` and ping is tested externally (note that `eth3` on vm-202 is
 `eth2` on the VMs). Then intern and extern TCP traffic is tested.
 
+The `forwarder-ovs` start ovs itself by default. This may be
+undesirable and it can use the ovs on the host instead. This requires
+another image and slightly different configuration. In xcluster you
+can use `export xcluster_HOST_OVS=yes`.
+
+
+
+### Usage from another ovl
+
+Ovl's that uses NSM *should* use `nsm-ovs` and the `xcluster` test
+system for NSM start. This will isolate NSM problems and simplify NSM
+(and spire) trouble-shooting. Example;
 
 ```
-#export xcluster_NSM_FORWARDER=vpp  # "ovs" is default
-#export xcluster_HOST_OVS=yes       # Use ovs on the host
-./nsm-ovs.sh test > $log
-# Or;
-__nvm=4 xcadmin k8s_test --cni=calico nsm-ovs > $log
-# Optional (takes some time because of timeouts)
-./nsm-ovs.sh test udp > $log
+test_start() {
+ ...
+ xcluster_start network-topology spire k8s-pv nsm-ovs ...
+ ...
+ otcprog=spire_test
+ otc 1 start_spire_registrar
+ otcprog=nsm-ovs_test
+ otc 1 start_nsm
+ otc 1 start_forwarder
+ test "$xcluster_NSM_FORWARDER" = "vpp" && otc 1 vpp_version
+ unset otcprog
+ ...
+}
 ```
-
 
 ## Build
 
-Until NSM images exists they must be built locally.
-
-Checkout a remote branch;
-```
-git branch -a
-git checkout release/v1.1.1
-```
+Until NSM release images exists they should be built locally.
 
 ```
-#cd $GOPATH/src/github.com/networkservicemesh
-#git clone https://github.com/networkservicemesh/cmd-nsmgr.git
+# Check a remote branches;
 cd $GOPATH/src/github.com/networkservicemesh/cmd-nsmgr
-docker build --tag registry.nordix.org/cloud-native/nsm/cmd-nsmgr:local .
-images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-nsmgr:local
-
-#cd $GOPATH/src/github.com/networkservicemesh
-#git clone https://github.com/networkservicemesh/cmd-registry-k8s.git
-cd $GOPATH/src/github.com/networkservicemesh/cmd-registry-k8s
-docker build --tag registry.nordix.org/cloud-native/nsm/cmd-registry-k8s:local .
-images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-registry-k8s:local
-
-#cd $GOPATH/src/github.com/networkservicemesh
-#git clone https://github.com/networkservicemesh/cmd-forwarder-ovs.git
-cd $GOPATH/src/github.com/networkservicemesh/cmd-forwarder-ovs
-git pull
-docker build --tag registry.nordix.org/cloud-native/nsm/cmd-forwarder-ovs:local .
-images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-forwarder-ovs:local
-# use-host-ovs;
-docker build --tag registry.nordix.org/cloud-native/nsm/cmd-forwarder-host-ovs:local -f Dockerfile.use-host-ovs .
-images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-forwarder-host-ovs:local
-
-#cd $GOPATH/src/github.com/networkservicemesh
-#git clone https://github.com/networkservicemesh/cmd-forwarder-vpp.git
-cd $GOPATH/src/github.com/networkservicemesh/cmd-forwarder-vpp
-docker build --tag registry.nordix.org/cloud-native/nsm/cmd-forwarder-vpp:local .
-images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-forwarder-vpp:local
-
-#cd $GOPATH/src/github.com/networkservicemesh
-#git clone https://github.com/networkservicemesh/cmd-nse-remote-vlan.git
-cd $GOPATH/src/github.com/networkservicemesh/cmd-nse-remote-vlan
-docker build --tag registry.nordix.org/cloud-native/nsm/cmd-nse-remote-vlan:local .
-images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-nse-remote-vlan:local
-
-#cd $GOPATH/src/github.com/networkservicemesh
-#git clone https://github.com/networkservicemesh/cmd-nsc.git
-cd $GOPATH/src/github.com/networkservicemesh/cmd-nsc
-docker build --tag registry.nordix.org/cloud-native/nsm/cmd-nsc:local .
-images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/cmd-nsc:local
+git branch -a
+cdo nsm-ovs
+./nsm-ovs.sh build_nsm --branch=release/v1.1.1
 ```
 
-
-
-The manifests are taken from the [deployments-k8s](https://github.com/networkservicemesh/deployments-k8s)
+The manifests are taken from the
+[deployments-k8s](https://github.com/networkservicemesh/deployments-k8s)
 NSM repo with minor adaptations for `xcluster`.
 
 
@@ -159,6 +139,9 @@ pod=$(kubectl get pods -l app=forwarder-ovs -o name | head -1)
 kubectl exec -it $pod -- sh
 ovs-vsctl show
 ovs-appctl dpctl/show
+pod=$(kubectl get pods -l app=nsc-vlan -o name | head -1)
+kubectl exec -it $pod -- sh
+ifconfig
 ```
 
 ### The virtio cksum problem
@@ -171,7 +154,7 @@ rejected by the PODs due to incorrect tcp cksum.
 #### Work-around 1
 
 Set `ethtool -K eth3 tx off` in `vm-202` (this is set by scripts). This
-will force the kernel to calculate the tcp cksum.
+will force the kernel to calculate tcp cksums.
 
 #### Work-around 2
 
