@@ -19,7 +19,7 @@ mkdir -p $tmp
 cp -R $dir/default/* $tmp
 
 if test "$__local" = "yes"; then
-	log "USING LOCALLY BUILT IMAGES!"
+	log "NSM: USING LOCALLY BUILT IMAGES!"
 	$dir/nsm-ovs.sh set_local_image $tmp/etc/kubernetes/nsm/*.yaml > /dev/null
 fi
 
