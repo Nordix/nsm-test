@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nsm-registry
+spec:
+  ports:
+  - name: registry
+    port: 5002
+    protocol: TCP
+    targetPort: 5002
+  selector:
+    app: registry
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: registry
+  name: registry-memory
+spec:
+  selector:
+    matchLabels:
+      app: registry
+  template:
+    metadata:
+      labels:
+        app: registry
+        spiffe.io/spiffe-id: "true"
+    spec:
+      containers:
+      - env:
+        - name: SPIFFE_ENDPOINT_SOCKET
+          value: unix:///run/spire/sockets/agent.sock
+        - name: REGISTRY_MEMORY_LISTEN_ON
+          value: tcp://:5002
+        - name: REGISTRY_MEMORY_LOG_LEVEL
+          value: TRACE
+        - name: REGISTRY_MEMORY_PROXY_REGISTRY_URL
+          value: nsmgr-proxy:5004
+        image: ghcr.io/networkservicemesh/cmd-registry-memory:v1.1.1
+        imagePullPolicy: IfNotPresent
+        name: registry
+        ports:
+        - containerPort: 5002
+          hostPort: 5002
+        resources:
+          limits:
+            cpu: 200m
+            memory: 40Mi
+          requests:
+            cpu: 100m
+        volumeMounts:
+        - mountPath: /run/spire/sockets
+          name: spire-agent-socket
+      volumes:
+      - hostPath:
+          path: /run/spire/sockets
+          type: Directory
+        name: spire-agent-socket
+      - hostPath:
+          path: /var/lib/networkservicemesh
+          type: DirectoryOrCreate
+        name: nsm-socket

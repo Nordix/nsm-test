@@ -213,7 +213,7 @@ cmd_generate_manifests() {
 	mkdir -p $__dest || die "mkdir -p $__dest"
 	local c
 	for c in forwarder-host-ovs forwarder-ovs forwarder-vpp nse-remote-vlan \
-		nsmgr registry-k8s nsc-kernel; do
+		nsmgr registry-k8s registry-memory nsc-kernel; do
 		if ! test -d $apps/$c; then
 			log "Not a directory [$apps/$c], skipping..."
 			continue
@@ -270,7 +270,8 @@ cmd_build_nsm_image() {
 cmd_build_nsm() {
 	local i
 	for i in cmd-nsmgr cmd-registry-k8s cmd-forwarder-ovs cmd-forwarder-vpp \
-		cmd-nsc cmd-exclude-prefixes-k8s cmd-nse-remote-vlan; do
+		cmd-nsc cmd-exclude-prefixes-k8s cmd-registry-memory \
+		cmd-nse-remote-vlan; do
 		echo "==== Building [$i]"
 		cmd_build_nsm_image $i
 	done

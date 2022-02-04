@@ -61,10 +61,11 @@ cmd_tcase_start_nsm() {
 	else
 		tcase "Start NSM base"
 	fi
-	kubectl apply -f $yamld/registry-k8s.yaml || tdie
+	test -n "$NSM_REGISTRY" || NSM_REGISTRY=k8s
+	kubectl apply -f $yamld/registry-$NSM_REGISTRY.yaml || tdie
 	kubectl apply -f $yamld/nsmgr.yaml || tdie
 	#kubectl apply -f $yamld/nsm-base.yaml || tdie
-	test_deployment registry-k8s 180
+	test_deployment registry-$NSM_REGISTRY 180
 	test_daemonset nsmgr 30
 }
 
