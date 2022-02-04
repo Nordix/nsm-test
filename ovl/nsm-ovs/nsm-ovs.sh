@@ -97,7 +97,7 @@ test_start_empty() {
 	export __mem=3072
 	test -n "$__nvm" || __nvm=3
 	export __nvm
-	test "$__local" = "yes" && export __local
+	test "$__local" = "yes" && export nsm_local=yes
 	xcluster_start network-topology nsm-ovs spire lspci $@
 
 	otc 1 check_namespaces
@@ -214,7 +214,10 @@ cmd_generate_manifests() {
 	local c
 	for c in forwarder-host-ovs forwarder-ovs forwarder-vpp nse-remote-vlan \
 		nsmgr registry-k8s nsc-kernel; do
-		test -d $apps/$c || die "Not a directory [$apps/$c]"
+		if ! test -d $apps/$c; then
+			log "Not a directory [$apps/$c], skipping..."
+			continue
+		fi
 		kubectl kustomize $apps/$c > $__dest/$c.yaml
 	done
 	echo "Manifests in [$__dest]"
@@ -241,7 +244,7 @@ cmd_set_local_image() {
 		test -r $n || die "Not readable [$n]"
 		test -w $n || die "Not writable [$n]"
 		echo "=== $n"
-		sed -i -E -e 's,image: ghcr.io/networkservicemesh/ci/([^:]+):.*,image: registry.nordix.org/cloud-native/nsm/\1:local,' $n
+		sed -i -E -e 's,image: ghcr.io/networkservicemesh.*/([^:]+):.*,image: registry.nordix.org/cloud-native/nsm/\1:local,' $n
 	done
 }
 ##   build_nsm_image [--nsm-dir=dir] [--branch=main] <image>
@@ -267,7 +270,7 @@ cmd_build_nsm_image() {
 cmd_build_nsm() {
 	local i
 	for i in cmd-nsmgr cmd-registry-k8s cmd-forwarder-ovs cmd-forwarder-vpp \
-		cmd-nsc cmd-nse-remote-vlan cmd-exclude-prefixes-k8s; do
+		cmd-nsc cmd-exclude-prefixes-k8s cmd-nse-remote-vlan; do
 		echo "==== Building [$i]"
 		cmd_build_nsm_image $i
 	done

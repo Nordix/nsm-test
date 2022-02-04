@@ -35,7 +35,7 @@ spec:
               fieldPath: status.podIP
         - name: NSM_L2_RESOURCE_SELECTOR_FILE
           value: /etc/nsm/DomainConfigFileOvs
-        image: ghcr.io/networkservicemesh/ci/cmd-forwarder-ovs-use-host-ovs:7aca11b
+        image: ghcr.io/networkservicemesh/cmd-forwarder-ovs-use-host-ovs:v1.1.1
         imagePullPolicy: IfNotPresent
         name: forwarder-ovs
         securityContext:
