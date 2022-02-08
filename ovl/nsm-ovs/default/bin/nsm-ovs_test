@@ -56,11 +56,9 @@ cmd_tcase_ifup() {
 }
 
 cmd_tcase_start_nsm() {
-	if echo $yamld | grep -q local; then
-		tcase "Start NSM base with LOCAL images"
-	else
-		tcase "Start NSM base"
-	fi
+	tcase "Start NSM base"
+	local ver=$(grep image: $yamld/nsmgr.yaml | cut -d: -f3 | head -1)
+	tlog "NSM version [$ver]"
 	test -n "$NSM_REGISTRY" || NSM_REGISTRY=k8s
 	kubectl apply -f $yamld/registry-$NSM_REGISTRY.yaml || tdie
 	kubectl apply -f $yamld/nsmgr.yaml || tdie
@@ -294,8 +292,6 @@ cmd_tcase_vpp_version() {
 . /etc/profile
 . /usr/lib/xctest
 indent='  '
-
-test "$__local" = "yes" && yamld=$yamld-local
 
 # Get the command
 cmd=$1

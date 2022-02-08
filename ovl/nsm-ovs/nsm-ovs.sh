@@ -230,7 +230,7 @@ cmd_compare_manifests() {
 	local sdir=$dir/default/etc/kubernetes/nsm
 	local c
 	for c in forwarder-host-ovs forwarder-ovs forwarder-vpp nsmgr \
-		registry-k8s nse-remote-vlan; do
+		registry-k8s nsc-kernel nse-remote-vlan; do
 		test -r $__dest/$c.yaml || die "Not readable [$__dest/$c.yaml]"
 		test -r $sdir/$c.yaml || die "Not readable [$sdir/$c.yaml]"
 		meld $__dest/$c.yaml $sdir/$c.yaml

@@ -15,6 +15,8 @@ spec:
     spec:
       containers:
       - env:
+        - name: NSM_L2_RESOURCE_SELECTOR_FILE
+          value: /etc/nsm/DomainConfigFileOvs
         - name: NSM_NAME
           valueFrom:
             fieldRef:
@@ -33,9 +35,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        - name: NSM_L2_RESOURCE_SELECTOR_FILE
-          value: /etc/nsm/DomainConfigFileOvs
-        image: ghcr.io/networkservicemesh/cmd-forwarder-ovs-use-host-ovs:v1.1.1
+        image: ghcr.io/networkservicemesh/ci/cmd-forwarder-ovs-use-host-ovs:c9726bf
         imagePullPolicy: IfNotPresent
         name: forwarder-ovs
         securityContext:

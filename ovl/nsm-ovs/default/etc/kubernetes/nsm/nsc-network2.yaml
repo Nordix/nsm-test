@@ -8,7 +8,7 @@ spec:
   selector:
     matchLabels:
       app: nsc-network2
-  replicas: 4
+  replicas: 3
   template:
     metadata:
       labels:
@@ -16,6 +16,8 @@ spec:
     spec:
       containers:
       - env:
+        - name: NSM_NETWORK_SERVICES
+          value: kernel://network2/nsm-1
         - name: SPIFFE_ENDPOINT_SOCKET
           value: unix:///run/spire/sockets/agent.sock
         - name: NSM_LOG_LEVEL
@@ -24,9 +26,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        - name: NSM_NETWORK_SERVICES
-          value: kernel://network2/nsm-1
-        image: ghcr.io/networkservicemesh/cmd-nsc:v1.1.1
+        image: ghcr.io/networkservicemesh/cmd-nsc:v1.2.0-rc.1
         imagePullPolicy: IfNotPresent
         name: nsc
         volumeMounts:
