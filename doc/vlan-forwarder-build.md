@@ -1,4 +1,4 @@
-# Build nsm components for vlan forwarder using vlan mechanism
+# (DEPRECATED) Build nsm components for vlan forwarder using vlan mechanism
 
 This description details the steps of building components locally from source using local API and SDK.
 
