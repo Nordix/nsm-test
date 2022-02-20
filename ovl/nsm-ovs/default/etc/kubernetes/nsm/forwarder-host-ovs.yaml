@@ -35,7 +35,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        image: ghcr.io/networkservicemesh/ci/cmd-forwarder-ovs-use-host-ovs:c9726bf
+        image: ghcr.io/networkservicemesh/cmd-forwarder-ovs:v1.2.0
         imagePullPolicy: IfNotPresent
         name: forwarder-ovs
         securityContext:

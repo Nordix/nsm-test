@@ -34,6 +34,7 @@ dbg() {
 
 ##   env
 ##     Print environment.
+##     xcluster_NSM_FORWARDER=ovs
 ##
 cmd_env() {
 	test "$env_read" = "yes" && return 0
@@ -207,7 +208,14 @@ cmd_generate_manifests() {
 	test -d $apps || die "Not a directory [$apps]"
 	test -n "$__branch" || __branch=main
 	cd $apps/..
-	git checkout $__branch > /dev/null
+	git fetch
+	mkdir -p $tmp
+	local out=$tmp/out
+	if ! git switch $__branch > $out; then
+		cat $out
+		die "git switch"
+	fi
+	log "On branch $__branch"
 	git pull > /dev/null || die "git pull"
 	test -n "$__dest" || __dest=/tmp/$USER/nsm-manifests
 	mkdir -p $__dest || die "mkdir -p $__dest"
