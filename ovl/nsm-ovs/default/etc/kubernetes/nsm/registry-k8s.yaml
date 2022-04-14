@@ -96,7 +96,7 @@ spec:
           value: tcp://:5002
         - name: REGISTRY_K8S_PROXY_REGISTRY_URL
           value: nsmgr-proxy:5004
-        image: ghcr.io/networkservicemesh/cmd-registry-k8s:v1.2.0
+        image: ghcr.io/networkservicemesh/cmd-registry-k8s:v1.3.0
         imagePullPolicy: IfNotPresent
         name: registry
         ports:
