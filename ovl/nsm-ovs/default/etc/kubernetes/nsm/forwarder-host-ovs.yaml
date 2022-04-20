@@ -81,7 +81,7 @@ spec:
           type: DirectoryOrCreate
         name: vfio
       - hostPath:
-          path: /var/run/openvswitch
+          path: /usr/local/var/run/openvswitch
           type: DirectoryOrCreate
         name: ovs-socket
       - name: nsm-config
