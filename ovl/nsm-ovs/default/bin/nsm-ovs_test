@@ -102,13 +102,17 @@ cmd_tcase_collect_addresses() {
 	mkdir -p $tmp
 	for pod in $(kubectl get pods -l app=$nsc -o name); do
 		echo $pod >> $tmp/out
+		pushv 60
 		tex "kubectl exec $pod -- ip addr show dev nsm-1 > /dev/null 2>&1" || tdie "No nsm-1 in $pod"
-		kubectl exec $pod -- ip addr show dev nsm-1 >> $tmp/out || tdie
+		tlog "Found interface nsm-1 in pod [$pod]"
+		kubectl exec $pod -- ip addr show dev nsm-1 >> $tmp/out \
+			|| tdie "Get addresses in [$pod]"
 	done
 	cat $tmp/out
 	grep -Eo '169\.254\.10[0-9]\.[0-9]+/[0-9]+' $tmp/out > /tmp/adr
 	grep -Eo '100:10[0-9]::[0-9]+/[0-9]+' $tmp/out >> /tmp/adr
 	#cat /tmp/adr >&2
+	return 0
 }
 
 cmd_tcase_internal_ping() {
@@ -123,7 +127,7 @@ cmd_tcase_internal_ping() {
 	for pod in $(kubectl get pods -l app=$nsc -o name); do
 		for ipm in $(cat /tmp/adr); do
 			ip=$(echo $ipm | cut -d/ -f1)
-			kubectl exec $pod -- ping -W1 -c1 $ip || tdie "$pod $ip"
+			tex kubectl exec $pod -- ping -W1 -c1 $ip || tdie "$pod $ip"
 		done
 	done
 }

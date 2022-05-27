@@ -34,7 +34,6 @@ dbg() {
 
 ##   env
 ##     Print environment.
-##     xcluster_NSM_FORWARDER=ovs
 ##
 cmd_env() {
 	test "$env_read" = "yes" && return 0
@@ -54,9 +53,119 @@ cmd_env() {
 	env_read=yes
 }
 
+
+##   clone_nsm [--nsm-dir=dir]
+##     Clone repos needed for NSM build if needed
+cmd_clone_nsm() {
+	cmd_env
+	mkdir -p $__nsm_dir
+	cd $__nsm_dir
+	local c
+	for c in cmd-nsmgr cmd-registry-k8s cmd-forwarder-ovs cmd-forwarder-vpp \
+		cmd-nsc cmd-nse-remote-vlan deployments-k8s cmd-exclude-prefixes-k8s; do
+		if test -d "$__nsm_dir/$c"; then
+			echo "Already cloned [$c], git pull..."
+			cd "$__nsm_dir/$c"
+			git pull || die "git pull"
+		else
+			git clone https://github.com/networkservicemesh/$c.git || die "clone"
+		fi
+	done
+}
+##   generate_manifests [--branch=main] [--dest=/tmp/$USER/nsm-manifests]
+##     Generate manifests from deployments-k8s/apps
+cmd_generate_manifests() {
+	cmd_env
+	local apps=$__nsm_dir/deployments-k8s/apps
+	test -d $apps || die "Not a directory [$apps]"
+	test -n "$__branch" || __branch=main
+	cd $apps/..
+	git fetch
+	mkdir -p $tmp
+	local out=$tmp/out
+	if ! git switch $__branch > $out; then
+		cat $out
+		die "git switch"
+	fi
+	log "On branch $__branch"
+	git pull > /dev/null || die "git pull"
+	test -n "$__dest" || __dest=/tmp/$USER/nsm-manifests
+	mkdir -p $__dest || die "mkdir -p $__dest"
+	local c
+	for c in forwarder-host-ovs forwarder-ovs forwarder-vpp nse-remote-vlan \
+		nsmgr registry-k8s registry-memory nsc-kernel; do
+		if ! test -d $apps/$c; then
+			log "Not a directory [$apps/$c], skipping..."
+			continue
+		fi
+		kubectl kustomize $apps/$c > $__dest/$c.yaml
+	done
+	echo "Manifests in [$__dest]"
+}
+##   compare_manifests [--dest=/tmp/$USER/nsm-manifests]
+##     Compare generated manifests with the ones in this ovl.
+cmd_compare_manifests() {
+	which meld > /dev/null || die "Can't execute meld"
+	test -n "$__dest" || __dest=/tmp/$USER/nsm-manifests
+	local sdir=$dir/default/etc/kubernetes/nsm
+	local c
+	for c in forwarder-host-ovs forwarder-ovs forwarder-vpp nsmgr \
+		registry-k8s nsc-kernel nse-remote-vlan; do
+		if ! test -r $__dest/$c.yaml; then
+			log "Not readable [$__dest/$c.yaml]"
+			continue
+		fi
+		test -r $sdir/$c.yaml || die "Not readable [$sdir/$c.yaml]"
+		meld $__dest/$c.yaml $sdir/$c.yaml
+	done
+}
+##   set_local_image [yaml-files...]
+##     Change image: to locally built ones
+cmd_set_local_image() {
+	local n
+	for n in $@; do
+		test -r $n || die "Not readable [$n]"
+		test -w $n || die "Not writable [$n]"
+		echo "=== $n"
+		sed -i -E -e 's,image: ghcr.io/networkservicemesh.*/([^:]+):.*,image: registry.nordix.org/cloud-native/nsm/\1:local,' $n
+	done
+}
+##   build_nsm_image [--nsm-dir=dir] [--branch=main] <image>
+##     Build a NSM image and upload it to the local registry
+cmd_build_nsm_image() {
+	test -n "$1" || die 'No image'
+	local c=$1
+	cmd_env
+	test -d "$__nsm_dir/$c" || die "Not a directory [$__nsm_dir/$c]"
+	test -n "$__branch" || __branch=main
+	cd $__nsm_dir/$c
+	git branch -a | grep "origin/$__branch" || die "No [$__branch] in $c"
+	git checkout $__branch
+	git pull > /dev/null || die "$c: git pull"
+	docker build --tag registry.nordix.org/cloud-native/nsm/$c:local .
+	local images="$($XCLUSTER ovld images)/images.sh"
+	test -x $images || die "Not executable [$images]"
+	$images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/$c:local
+}
+##   build_nsm [--nsm-dir=dir] [--branch=main]
+##     Build all necessary NSM images. Example;
+##       ./nsm-ovs.sh build_nsm --branch=release/v1.1.1
+cmd_build_nsm() {
+	local i
+	for i in cmd-nsmgr cmd-registry-k8s cmd-forwarder-ovs cmd-forwarder-vpp \
+		cmd-nsc cmd-exclude-prefixes-k8s cmd-registry-memory \
+		cmd-nse-remote-vlan; do
+		echo "==== Building [$i]"
+		cmd_build_nsm_image $i
+	done
+}
+
+##
 ##   test --list
 ##   test [--xterm] [--no-stop] [--local] [test...] > logfile
-##     Exec tests
+##     Exec tests. Env;
+##     xcluster_NSM_FORWARDER=ovs|vpp
+##     xcluster_NSM_REGISTRY=k8s|memory
 ##
 cmd_test() {
 	if test "$__list" = "yes"; then
@@ -86,10 +195,8 @@ test_start_empty() {
 	test -n "$__mode" || __mode=dual-stack
 	export xcluster___mode=$__mode
 	xcluster_prep $__mode
-	export TOPOLOGY=multilan
+	export TOPOLOGY=multilan-router
 	. $($XCLUSTER ovld network-topology)/$TOPOLOGY/Envsettings
-	export __smp202=3
-	export __nets202=0,1,2,3,4,5
 	if test "$xcluster_FIRST_WORKER" = "1"; then
 		export __mem1=4096
 	else
@@ -181,108 +288,6 @@ test_multivlan() {
 	otc 1 "collect_addresses nsc-network2"
 	otc 1 "internal_ping nsc-network2"
 	xcluster_stop
-}
-##
-
-##   clone_nsm [--nsm-dir=dir]
-##     Clone repos needed for NSM build if needed
-cmd_clone_nsm() {
-	cmd_env
-	mkdir -p $__nsm_dir
-	cd $__nsm_dir
-	local c
-	for c in cmd-nsmgr cmd-registry-k8s cmd-forwarder-ovs cmd-forwarder-vpp \
-		cmd-nsc cmd-nse-remote-vlan deployments-k8s cmd-exclude-prefixes-k8s; do
-		if test -d "$__nsm_dir/$c"; then
-			echo "Already cloned [$c]"
-			continue
-		fi
-		git clone https://github.com/networkservicemesh/$c.git || die "clone"
-	done
-}
-##   generate_manifests [--branch=main] [--dest=/tmp/$USER/nsm-manifests]
-##     Generate manifests from deployments-k8s/apps
-cmd_generate_manifests() {
-	cmd_env
-	local apps=$__nsm_dir/deployments-k8s/apps
-	test -d $apps || die "Not a directory [$apps]"
-	test -n "$__branch" || __branch=main
-	cd $apps/..
-	git fetch
-	mkdir -p $tmp
-	local out=$tmp/out
-	if ! git switch $__branch > $out; then
-		cat $out
-		die "git switch"
-	fi
-	log "On branch $__branch"
-	git pull > /dev/null || die "git pull"
-	test -n "$__dest" || __dest=/tmp/$USER/nsm-manifests
-	mkdir -p $__dest || die "mkdir -p $__dest"
-	local c
-	for c in forwarder-host-ovs forwarder-ovs forwarder-vpp nse-remote-vlan \
-		nsmgr registry-k8s registry-memory nsc-kernel; do
-		if ! test -d $apps/$c; then
-			log "Not a directory [$apps/$c], skipping..."
-			continue
-		fi
-		kubectl kustomize $apps/$c > $__dest/$c.yaml
-	done
-	echo "Manifests in [$__dest]"
-}
-##   compare_manifests [--dest=/tmp/$USER/nsm-manifests]
-##     Compare generated manifests with the ones in this ovl.
-cmd_compare_manifests() {
-	which meld > /dev/null || die "Can't execute meld"
-	test -n "$__dest" || __dest=/tmp/$USER/nsm-manifests
-	local sdir=$dir/default/etc/kubernetes/nsm
-	local c
-	for c in forwarder-host-ovs forwarder-ovs forwarder-vpp nsmgr \
-		registry-k8s nsc-kernel nse-remote-vlan; do
-		test -r $__dest/$c.yaml || die "Not readable [$__dest/$c.yaml]"
-		test -r $sdir/$c.yaml || die "Not readable [$sdir/$c.yaml]"
-		meld $__dest/$c.yaml $sdir/$c.yaml
-	done
-}
-##   set_local_image [yaml-files...]
-##     Change image: to locally built ones
-cmd_set_local_image() {
-	local n
-	for n in $@; do
-		test -r $n || die "Not readable [$n]"
-		test -w $n || die "Not writable [$n]"
-		echo "=== $n"
-		sed -i -E -e 's,image: ghcr.io/networkservicemesh.*/([^:]+):.*,image: registry.nordix.org/cloud-native/nsm/\1:local,' $n
-	done
-}
-##   build_nsm_image [--nsm-dir=dir] [--branch=main] <image>
-##     Build a NSM image and upload it to the local registry
-cmd_build_nsm_image() {
-	test -n "$1" || die 'No image'
-	local c=$1
-	cmd_env
-	test -d "$__nsm_dir/$c" || die "Not a directory [$__nsm_dir/$c]"
-	test -n "$__branch" || __branch=main
-	cd $__nsm_dir/$c
-	git branch -a | grep "origin/$__branch" || die "No [$__branch] in $c"
-	git checkout $__branch
-	git pull > /dev/null || die "$c: git pull"
-	docker build --tag registry.nordix.org/cloud-native/nsm/$c:local .
-	local images="$($XCLUSTER ovld images)/images.sh"
-	test -x $images || die "Not executable [$images]"
-	$images lreg_upload --strip-host registry.nordix.org/cloud-native/nsm/$c:local
-}
-##   build_nsm [--nsm-dir=dir] [--branch=main]
-##     Build all necessary NSM images. Example;
-##       ./nsm-ovs.sh build_nsm --branch=release/v1.1.1
-cmd_build_nsm() {
-	local i
-	for i in cmd-nsmgr cmd-registry-k8s cmd-forwarder-ovs cmd-forwarder-vpp \
-		cmd-nsc cmd-exclude-prefixes-k8s cmd-registry-memory \
-		cmd-nse-remote-vlan; do
-		echo "==== Building [$i]"
-		cmd_build_nsm_image $i
-	done
 }
 
 ##
