@@ -120,13 +120,11 @@ cmd_tcase_internal_ping() {
 	test -n "$1" && nsc=$1
 	tcase "Ping pod-to-pods in $nsc"
 	local pod ipm ip
-	for ipm in $(cat /tmp/adr); do
-		ip=$(echo $ipm | cut -d/ -f1)
-		tlog "ping address $ip"
-	done
 	for pod in $(kubectl get pods -l app=$nsc -o name); do
 		for ipm in $(cat /tmp/adr); do
 			ip=$(echo $ipm | cut -d/ -f1)
+			tlog "ping address $ip"
+			pushv 120
 			tex kubectl exec $pod -- ping -W1 -c1 $ip || tdie "$pod $ip"
 		done
 	done
