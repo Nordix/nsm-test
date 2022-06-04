@@ -27,20 +27,20 @@ spec:
         - name: NSM_SERVICES
           value: 'finance-bridge { vlan: 100; via: service.domain.2}'
 # NSM > v1.3.x
-#        - name: NSM_CIDR_PREFIX
-#          value: "169.254.100.0/24,100:100::/64"
-# NSM <= v1.3.x
         - name: NSM_CIDR_PREFIX
-          value: "169.254.100.0/24"
-        - name: NSM_IPV6_PREFIX
-          value: "100:100::/64"
+          value: "169.254.100.0/24,100:100::/64"
+# NSM <= v1.3.x
+#        - name: NSM_CIDR_PREFIX
+#          value: "169.254.100.0/24"
+#        - name: NSM_IPV6_PREFIX
+#          value: "100:100::/64"
         - name: NSM_POINT2POINT
           value: "True"
         - name: NSM_REGISTER_SERVICE
           value: "True"
         - name: NSM_LISTEN_ON
           value: tcp://:5003
-        image: ghcr.io/networkservicemesh/cmd-nse-remote-vlan:v1.3.0
+        image: ghcr.io/networkservicemesh/cmd-nse-remote-vlan:v1.4.0-rc.2
         imagePullPolicy: IfNotPresent
         name: nse
         ports:

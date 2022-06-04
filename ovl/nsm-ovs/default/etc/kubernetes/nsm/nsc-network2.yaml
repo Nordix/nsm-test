@@ -22,11 +22,13 @@ spec:
           value: unix:///run/spire/sockets/agent.sock
         - name: NSM_LOG_LEVEL
           value: TRACE
+        - name: NSM_LIVENESSCHECKENABLED
+          value: "false"
         - name: NSM_NAME
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        image: ghcr.io/networkservicemesh/cmd-nsc:v1.3.0
+        image: ghcr.io/networkservicemesh/cmd-nsc:v1.4.0-rc.2
         imagePullPolicy: IfNotPresent
         name: nsc
         volumeMounts:

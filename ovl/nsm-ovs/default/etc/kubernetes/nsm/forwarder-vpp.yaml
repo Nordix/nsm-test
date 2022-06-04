@@ -33,7 +33,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        image: ghcr.io/networkservicemesh/cmd-forwarder-vpp:v1.3.0
+        image: ghcr.io/networkservicemesh/cmd-forwarder-vpp:v1.4.0-rc.2
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:

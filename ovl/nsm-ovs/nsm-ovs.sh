@@ -130,6 +130,16 @@ cmd_set_local_image() {
 		sed -i -E -e 's,image: ghcr.io/networkservicemesh.*/([^:]+):.*,image: registry.nordix.org/cloud-native/nsm/\1:local,' $n
 	done
 }
+##   set_image_version <version>
+##     Change image version in default/
+cmd_set_image_version() {
+	test -n "$1" || die "No version"
+	local n
+	for n in $(find $dir/default/etc/kubernetes -name '*.yaml'); do
+		echo "=== $(basename $n)"
+		sed -i -E -e "s,image: ghcr.io/networkservicemesh.*/([^:]+):.*,image: ghcr.io/networkservicemesh/\\1:$1," $n
+	done
+}
 ##   build_nsm_image [--nsm-dir=dir] [--branch=main] <image>
 ##     Build a NSM image and upload it to the local registry
 cmd_build_nsm_image() {
