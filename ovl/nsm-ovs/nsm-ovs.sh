@@ -234,9 +234,13 @@ test_start() {
 	export __append1="hugepages=128"
 	export __append2="hugepages=128"
 	export __append3="hugepages=128"
-	if test "$xcluster_HOST_OVS" = "yes"; then
-		test "$xcluster_NSM_FORWARDER" = "ovs" || tdie "Forwarder must be ovs"
-		test_start_empty ovs $@
+	if test "$xcluster_NSM_FORWARDER" = "ovs"; then
+		test -n "$xcluster_HOST_OVS" || export xcluster_HOST_OVS=yes
+		if test "$xcluster_HOST_OVS" = "yes"; then
+			test_start_empty ovs $@
+		else
+			test_start_empty $@
+		fi
 	else
 		test_start_empty $@
 	fi
