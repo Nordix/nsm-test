@@ -1,12 +1,13 @@
 # nsm-test
 
 A common place for documentation and code for testing
-[NSM](https://www.networkservicemesh.io/) next-generation.
+[NSM](https://www.networkservicemesh.io/).
 
 ## Doc
 
 * [Build nsm components locally](doc/localbuild.md)
 * [OVS based forwarder for NSM next-gen](doc/ovs-forwarder.md)
+* [NSM p2mp demo](doc/ovs-nsm-p2mp.pdf)
 
 ## Xcluster ovls
 
