@@ -1,0 +1,108 @@
+
+# Prerequisite; ovs is built
+
+
+# ----- Demo - local p2p
+
+# The current NSM forwarder-ovs
+# The forwarder-ovs assumes that a working OvS is running on the host (node)
+
+cdo ovs
+xcluster_NPODS=2 __nvm=1 ./ovs.sh test start > $log
+
+# On vm-001
+ovs-vsctl show  # OvS is running
+
+ip netns
+ip netns exec vm-001-ns01 ifconfig eth0
+ip netns exec vm-001-ns02 ifconfig eth0
+ifconfig   # Interfaces already injected
+
+# The NSM forwarder-ovs does this on start-up
+ovs-vsctl add-br nsm-br -- set-fail-mode nsm-br secure
+ovs-vsctl show
+ifconfig nsm-br
+
+# NSM would create and inject VETHs here, but that is already done
+# Add the veth's to the bridge
+ovs-vsctl add-port nsm-br vm-001-ns01
+ovs-vsctl add-port nsm-br vm-001-ns02
+ovs-vsctl show
+
+# Create the bi-directional flow
+ip netns exec vm-001-ns01 ping -c1 -W1 172.16.1.2
+ovs-ofctl add-flow nsm-br in_port=vm-001-ns01,actions=output:vm-001-ns02
+ovs-ofctl add-flow nsm-br in_port=vm-001-ns02,actions=output:vm-001-ns01
+ip netns exec vm-001-ns01 ping -c1 -W1 172.16.1.2
+
+# Back on host
+xc stop
+
+
+
+# ----- Demo - OvS load-balancing
+
+# The "vNSE Model"
+
+
+# - Start cluster. Show “PODs”
+cdo ovs
+xcluster_NPODS=2 __nvm=1 ./ovs.sh test start > $log
+vm 1
+ip netns
+ifconfig   # Interfaces already injected
+
+# - Create a bridge (the bridge interface (br0) emulates the NSC)
+ovs_test ofbridge --configure --mac=0:0:0:0:0:1
+ifconfig br0 # Note NOARP and the MAC
+
+# - Attach POD (nse) interfaces (already injected) to the bridge. Check MACs
+ovs-vsctl show
+ovs_test attach_veth --noarp --mac=0:0:0:0:0:1
+ovs-vsctl show
+ip netns exec vm-001-ns01 ifconfig eth0 # Note NOARP and the MAC
+
+
+# - Setup load-balancing (quite complicated)
+
+# Create a "group"
+# This "group" is a hash table (currently empty)
+ovs-ofctl add-group br0 group_id=0,type=select,selection_method=hash
+ovs-ofctl dump-groups br0
+
+ovs-ofctl insert-buckets br0 \
+  group_id=0,command_bucket_id=last,bucket=bucket_id:1,weight=1,actions=output:vm-001-ns01
+ovs-ofctl insert-buckets br0 \
+  group_id=0,command_bucket_id=last,bucket=bucket_id:2,weight=1,actions=output:vm-001-ns02
+ovs-ofctl dump-groups br0
+
+# Add a flow that directs packet on br0 to our new group
+ovs-ofctl add-flow br0 in_port=br0,actions=group:0
+
+# The load-balancing is done. Packets entering the bridge `br0` will
+# be load-balanced between the 2 PODs.
+
+
+
+# - Add VIP addresses and route (differs from the NSE setup)
+
+ovs_test add_vip 10.0.0.0   # Add VIP addresses to all PODs
+ip netns exec vm-001-ns01 ip addr show eth0
+ip ro add 10.0.0.0/32 dev br0
+ip -6 ro add 1000::1:10.0.0.0/128 dev br0
+
+# In NSM the route would be a source policy route in the NSC,
+# and there will be no VIPs in the NSEs (of course)
+
+
+# - Add return flows p2p POD→br0 (NSE→NSC)
+
+ovs-ofctl add-flow br0 in_port=vm-001-ns01,actions=output:br0
+ovs-ofctl add-flow br0 in_port=vm-001-ns02,actions=output:br0
+
+
+# - Test with mconnect
+
+ovs_test tcase_mconnect_server > /dev/null
+mconnect -address [1000::1:10.0.0.0]:5001 -nconn 100
+mconnect -address 10.0.0.0:5001 -nconn 100
