@@ -23,7 +23,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: NSM_CONNECT_TO
-          value: nsm-registry:5002
+          value: nsm-registry.default:5002
         - name: NSM_SERVICES
           value: 'finance-bridge { vlan: 100; via: service.domain.2}'
 # NSM > v1.3.x

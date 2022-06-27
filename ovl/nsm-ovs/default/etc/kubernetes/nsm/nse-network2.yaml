@@ -22,7 +22,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: NSM_CONNECT_TO
-          value: nsm-registry:5002
+          value: nsm-registry.default:5002
         - name: NSM_SERVICES
           value: 'network2 { vlan: 200; via: service.domain.2}'
         - name: NSM_CIDR_PREFIX

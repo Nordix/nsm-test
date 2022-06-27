@@ -11,6 +11,7 @@ prg=$(basename $0)
 dir=$(dirname $0); dir=$(readlink -f $dir)
 me=$dir/$prg
 tmp=/tmp/${prg}_$$
+. /etc/profile
 test -n "$DOMAIN" || DOMAIN=xcluster
 yamld=/etc/kubernetes/nsm
 
@@ -36,7 +37,7 @@ dbg() {
 
 cmd_tcase_check_namespaces() {
 	test_namespaces
-	tlog "$(kubectl version --short=true | grep Server)"
+	tlog "$($kubectl version --short=true | grep Server)"
 }
 cmd_tcase_check_nodes() {
 	test_nodes
@@ -60,8 +61,12 @@ cmd_tcase_start_nsm() {
 	local ver=$(grep image: $yamld/nsmgr.yaml | cut -d: -f3 | head -1)
 	tlog "NSM version [$ver]"
 	test -n "$NSM_REGISTRY" || NSM_REGISTRY=k8s
-	kubectl apply -f $yamld/registry-$NSM_REGISTRY.yaml || tdie
-	kubectl apply -f $yamld/nsmgr.yaml || tdie
+	if test -n "$NSM_NAMESPACE"; then
+		kubectl create namespace $NSM_NAMESPACE
+		kubectl="kubectl -n $NSM_NAMESPACE"
+	fi
+	$kubectl apply -f $yamld/registry-$NSM_REGISTRY.yaml || tdie
+	$kubectl apply -f $yamld/nsmgr.yaml || tdie
 	#kubectl apply -f $yamld/nsm-base.yaml || tdie
 	test_deployment registry-$NSM_REGISTRY 180
 	test_daemonset nsmgr 30
@@ -71,8 +76,9 @@ cmd_tcase_start_forwarder() {
 	local f=$yamld/forwarder-$NSM_FORWARDER.yaml
 	test "$HOST_OVS" = "yes" && f=$yamld/forwarder-host-ovs.yaml
 	tcase "Start NSM forwarder-$(basename $f)"
+	test -n "$NSM_NAMESPACE" && kubectl="kubectl -n $NSM_NAMESPACE"
 	test -r $f || tdie "Not readable [$f]"
-	kubectl apply -f $f || tdie
+	$kubectl apply -f $f || tdie
 	test_daemonset forwarder-$NSM_FORWARDER 120 || tdie
 }
 
@@ -82,7 +88,8 @@ cmd_tcase_start_nse() {
 	tcase "Start NSE $nse"
 	local f=$yamld/$nse.yaml
 	test -r $f || tdie "Not readable [$f]"
-	kubectl apply -f $f || tdie
+	test -n "$NSM_NAMESPACE" && sed -i -e "s,.default,.$NSM_NAMESPACE," $f
+	$kubectl apply -f $f || tdie
 	test_deployment $nse 120 || tdie
 }
 
@@ -90,7 +97,7 @@ cmd_tcase_start_nsc() {
 	local nsc=nsc-kernel
 	test -n "$1" && nsc=$1
 	tcase "Start NSC $nsc"
-	kubectl apply -f $yamld/$nsc.yaml || tdie
+	$kubectl apply -f $yamld/$nsc.yaml || tdie
 	test_deployment $nsc 120 || tdie
 }
 
@@ -100,12 +107,12 @@ cmd_tcase_collect_addresses() {
 	tcase "Collect NSC addresses from $nsc"
 	local pod
 	mkdir -p $tmp
-	for pod in $(kubectl get pods -l app=$nsc -o name); do
+	for pod in $($kubectl get pods -l app=$nsc -o name); do
 		echo $pod >> $tmp/out
 		pushv 60
-		tex "kubectl exec $pod -- ip addr show dev nsm-1 > /dev/null 2>&1" || tdie "No nsm-1 in $pod"
+		tex "$kubectl exec $pod -- ip addr show dev nsm-1 > /dev/null 2>&1" || tdie "No nsm-1 in $pod"
 		tlog "Found interface nsm-1 in pod [$pod]"
-		kubectl exec $pod -- ip addr show dev nsm-1 >> $tmp/out \
+		$kubectl exec $pod -- ip addr show dev nsm-1 >> $tmp/out \
 			|| tdie "Get addresses in [$pod]"
 	done
 	cat $tmp/out
@@ -120,12 +127,12 @@ cmd_tcase_internal_ping() {
 	test -n "$1" && nsc=$1
 	tcase "Ping pod-to-pods in $nsc"
 	local pod ipm ip
-	for pod in $(kubectl get pods -l app=$nsc -o name); do
+	for pod in $($kubectl get pods -l app=$nsc -o name); do
 		for ipm in $(cat /tmp/adr); do
 			ip=$(echo $ipm | cut -d/ -f1)
 			tlog "ping address $ip"
 			pushv 120
-			tex kubectl exec $pod -- ping -W1 -c1 $ip || tdie "$pod $ip"
+			tex $kubectl exec $pod -- ping -W1 -c1 $ip || tdie "$pod $ip"
 		done
 	done
 }
@@ -166,10 +173,10 @@ cmd_tcase_external_ping() {
 start_nc_server() {
 	local pods=0 pod nsc=$1
 	shift
-	for pod in $(kubectl get pods -l app=$nsc -o name); do
+	for pod in $($kubectl get pods -l app=$nsc -o name); do
 		pods=$((pods + 1))
-		kubectl exec $pod -- killall nc 2>&1
-		kubectl exec $pod -- sh -c \
+		$kubectl exec $pod -- killall nc 2>&1
+		$kubectl exec $pod -- sh -c \
 			"nc -lk $@ -p 6000 -e hostname > /dev/null < /dev/null 2>&1 &"
 	done
 	test $pods -gt 0 || tdie "No pods app=$nsc"
@@ -177,9 +184,9 @@ start_nc_server() {
 
 stop_nc_server() {
 	local pods=0 pod
-	for pod in $(kubectl get pods -l app=$1 -o name); do
+	for pod in $($kubectl get pods -l app=$1 -o name); do
 		pods=$((pods + 1))
-		kubectl exec $pod -- killall nc 2>&1
+		$kubectl exec $pod -- killall nc 2>&1
 	done
 	test $pods -gt 0 || tdie "No pods app=$1"
 }
@@ -196,11 +203,11 @@ cmd_tcase_internal_tcp() {
 	test -n "$1" && nsc=$1
 	tcase "Internal pod-to-pods TCP $nsc"
 	local pods=0 pod ipm ip
-	for pod in $(kubectl get pods -l app=$nsc -o name); do
+	for pod in $($kubectl get pods -l app=$nsc -o name); do
 		pods=$((pods + 1))
 		for ipm in $(cat /tmp/adr); do
 			ip=$(echo $ipm | cut -d/ -f1)
-			kubectl exec $pod -- sh -c \
+			$kubectl exec $pod -- sh -c \
 				"echo | nc -w1 $ip 6000 | grep $nsc" || tdie "$pod $ip"
 		done
 	done
@@ -230,7 +237,7 @@ cmd_tcase_internal_udp() {
 	test -n "$1" && nsc=$1
 	tcase "Internal pod-to-pods UDP $nsc"
 	local pods=0 pod ipm ip
-	for pod in $(kubectl get pods -l app=$nsc -o name); do
+	for pod in $($kubectl get pods -l app=$nsc -o name); do
 		pods=$((pods + 1))
 		tlog "IPv4 from $pod"
 		# The server dies after one connect so always start new ones
@@ -238,13 +245,13 @@ cmd_tcase_internal_udp() {
 		for ipm in $(cat /tmp/adr); do
 			ip=$(echo $ipm | cut -d/ -f1)
 			echo $ip | grep -q : && continue
-			kubectl exec $pod -- sh -c \
+			$kubectl exec $pod -- sh -c \
 				"echo | nc -w1 -u $ip 6000 | grep $nsc" || tdie "$pod $ip"
 		done
 	done
 	test $pods -gt 0 || tdie "No pods app=$nsc"
 	pods=0
-	for pod in $(kubectl get pods -l app=$nsc -o name); do
+	for pod in $($kubectl get pods -l app=$nsc -o name); do
 		pods=$((pods + 1))
 		tlog "IPv6 from $pod"
 		# The server dies after one connect so always start new ones
@@ -252,7 +259,7 @@ cmd_tcase_internal_udp() {
 		for ipm in $(cat /tmp/adr); do
 			ip=$(echo $ipm | cut -d/ -f1)
 			echo $ip | grep -q : || continue
-			kubectl exec $pod -- sh -c \
+			$kubectl exec $pod -- sh -c \
 				"echo | nc -w1 -u $ip 6000 | grep $nsc" || tdie "$pod $ip"
 		done
 	done
@@ -282,16 +289,15 @@ cmd_tcase_external_udp() {
 
 cmd_tcase_vpp_version() {
 	tcase "VPP version"
-	local pod=$(kubectl get pods -l app=forwarder-vpp -o name | head -1)
+	local pod=$($kubectl get pods -l app=forwarder-vpp -o name | head -1)
 	mkdir -p $tmp
-	kubectl exec $pod -- vppctl show version > $tmp/out 2> $tmp/err
+	$kubectl exec $pod -- vppctl show version > $tmp/out 2> $tmp/err
 	cat $tmp/err $tmp/out
 	grep -qF 'vpp v' $tmp/out || tdie
 	tlog "$(cat $tmp/out)"
 	return 0
 }
 
-. /etc/profile
 . /usr/lib/xctest
 indent='  '
 

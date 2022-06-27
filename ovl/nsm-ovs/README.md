@@ -68,6 +68,7 @@ Basic test;
 ```
 #export xcluster_NSM_FORWARDER=vpp  # "ovs" is default
 #export xcluster_HOST_OVS=yes       # Use ovs on the host
+#export xcluster_NSM_NAMESPACE=nsm
 ./nsm-ovs.sh test > $log
 # Or use locally built images (see below);
 ./nsm-ovs.sh test --local > $log
