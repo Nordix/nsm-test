@@ -140,18 +140,19 @@ cmd_set_image_version() {
 		sed -i -E -e "s,image: ghcr.io/networkservicemesh.*/([^:]+):.*,image: ghcr.io/networkservicemesh/\\1:$1," $n
 	done
 }
-##   build_nsm_image [--nsm-dir=dir] [--branch=main] <image>
+##   build_nsm_image [--nsm-dir=dir] [--branch=branch] <image>
 ##     Build a NSM image and upload it to the local registry
 cmd_build_nsm_image() {
 	test -n "$1" || die 'No image'
 	local c=$1
 	cmd_env
 	test -d "$__nsm_dir/$c" || die "Not a directory [$__nsm_dir/$c]"
-	test -n "$__branch" || __branch=main
 	cd $__nsm_dir/$c
-	git branch -a | grep "origin/$__branch" || die "No [$__branch] in $c"
-	git checkout $__branch
-	git pull > /dev/null || die "$c: git pull"
+	if test -n "$__branch"; then
+		git branch -a | grep "origin/$__branch" || die "No [$__branch] in $c"
+		git checkout $__branch
+		git pull > /dev/null || die "$c: git pull"
+	fi
 	docker build --tag registry.nordix.org/cloud-native/nsm/$c:local .
 	local images="$($XCLUSTER ovld images)/images.sh"
 	test -x $images || die "Not executable [$images]"

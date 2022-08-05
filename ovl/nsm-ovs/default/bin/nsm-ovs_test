@@ -289,6 +289,7 @@ cmd_tcase_external_udp() {
 
 cmd_tcase_vpp_version() {
 	tcase "VPP version"
+	test -n "$NSM_NAMESPACE" && kubectl="kubectl -n $NSM_NAMESPACE"
 	local pod=$($kubectl get pods -l app=forwarder-vpp -o name | head -1)
 	mkdir -p $tmp
 	$kubectl exec $pod -- vppctl show version > $tmp/out 2> $tmp/err
