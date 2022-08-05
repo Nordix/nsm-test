@@ -28,7 +28,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        image: ghcr.io/networkservicemesh/cmd-nsc:v1.4.0
+        image: ghcr.io/networkservicemesh/cmd-nsc:v1.5.0
         imagePullPolicy: IfNotPresent
         name: nsc
         volumeMounts:
