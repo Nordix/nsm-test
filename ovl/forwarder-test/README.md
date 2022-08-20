@@ -1,7 +1,8 @@
 # Xcluster/ovl - forwarder-test
 
-Tests Meridio in `xcluster`. Originally this ovl was testing different NSM
-forwarders only, but it has evolved to generic e2e tests with `xcluster`.
+Tests of Meridio in [xcluster](https://github.com/Nordix/xcluster).
+Originally this ovl was testing different NSM forwarders only, but it
+has evolved to generic e2e.
 
 The [ovl/nsm-ovs](https://github.com/Nordix/nsm-test/tree/master/ovl/nsm-ovs)
 is used for NSM setup and the same network setup is used;
@@ -21,13 +22,35 @@ Add "1000::1" for ipv6, e.g. 169.254.101.0/24 -> 1000::1:169.254.101.0/120
 
 ## Usage
 
-Pre-load the local registry if necessary;
+A local registry is required. Pre-load if necessary;
 ```
 images lreg_preload k8s-pv
 images lreg_preload spire
 images lreg_preload nsm-ovs
 images lreg_preload forwarder-test
 ```
+
+Start cluster with NSM only;
+```
+./forwarder-test.sh test start > $log
+# Or;
+xcluster_NSM_FORWARDER=ovs ./forwarder-test.sh test start > $log
+# Or;
+#images lreg_preload k8s-cni-calico
+xcadmin k8s_test --cni=calico forwarder-test start > $log
+```
+
+Run default test;
+```
+#images lreg_preload default
+./forwarder-test.sh test > $log
+# Or;
+xcadmin k8s_test --cni=calico forwarder-test > $log
+```
+
+
+
+## Tests
 
 The default test ("trench") starts three trenches and test external
 connectivity from `vm-202` using [mconnect](https://github.com/Nordix/mconnect).
@@ -41,7 +64,27 @@ connectivity from `vm-202` using [mconnect](https://github.com/Nordix/mconnect).
 xcadmin k8s_test --cni=calico forwarder-test > $log
 ```
 
-#### Scaling test
+Variations;
+```
+# Use multus to add external interfaces in the FE;
+./forwarder-test.sh test --trenches=red --use-multus > $log
+# Use BGP (Bird) instead of static routing in the FE
+./forwarder-test.sh test --trenches=red --bgp > $log
+# Combinations are OK;
+./forwarder-test.sh test --trenches=red --use-multus --bgp > $log
+```
+
+A problem in the past (that may resurface) is that the NSM setup
+"degenerates" after some time. To test this an extra connection test
+can be executed after some time;
+
+```
+./forwarder-test.sh test --trenches=red --reconnect-delay=120 > $log
+```
+
+
+
+### Scaling test
 
 The scaling is tested by changing the `replica` count for the targets
 and by disconnect/reconnect targets from the stream. An optional `--cnt`
@@ -49,6 +92,18 @@ parameter can be set to repeat the disconnect/reconnect test.
 
 ```
 ./forwarder-test.sh test --cnt=5 scale > $log
+```
+
+
+### Port NAT tests
+
+Port NAT is supported in [Meridio](
+https://github.com/Nordix/Meridio/blob/master/docs/port-nat.md)
+and can be tested with;
+
+```
+./forwarder-test.sh test port_nat_basic > $log
+./forwarder-test.sh test port_nat_vip > $log
 ```
 
 
