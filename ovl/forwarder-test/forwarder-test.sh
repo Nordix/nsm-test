@@ -44,6 +44,7 @@ cmd_env() {
 	fi
 
 	test -n "$MERIDIOD" || MERIDIOD=$GOPATH/src/github.com/Nordix/Meridio
+	test -n "$MERIDIOVER" || MERIDIOVER=local
 	test -n "$xcluster_NSM_FORWARDER" || export xcluster_NSM_FORWARDER=vpp
 	test -n "$xcluster_FIRST_WORKER" || export xcluster_FIRST_WORKER=1
 	if test "$xcluster_FIRST_WORKER" = "1"; then
@@ -120,14 +121,14 @@ cmd_bird_build() {
 ##     Generate manifests from Meridio helm charts.
 cmd_generate_manifests() {
 	unset KUBECONFIG
+	cmd_env
 	test -n "$__dst" || __dst=/tmp/$USER/meridio-manifests
 	mkdir -p $__dst
-	test -n "$__meridio_dir" || __meridio_dir=$(readlink -f ../../../../../..)
 	local m
-	m=$__meridio_dir/deployments/helm
+	m=$MERIDIOD/deployments/helm
 	test -d $m || die "Not a directory [$m]"
 	helm template --generate-name $m > $__dst/meridio.yaml
-	m=$__meridio_dir/examples/target/helm
+	m=$MERIDIOD/examples/target/helm
 	test -d $m || die "Not a directory [$m]"
 	helm template --generate-name $m > $__dst/target.yaml
 	echo "Manifests generated in [$__dst]"
@@ -145,16 +146,17 @@ cmd_chversion() {
 		sed -i -E "s,image:(.*(frontend|ipam|load-balancer|nsp|proxy|tapa)):$__old,image:\\1:$new," $f
 	done
 }
-##   lreg_upload <version>
-##     Upload Meridio images to local registry
-cmd_lreg_upload() {
-	test -n "$1" || die "Missing parameter"
+##   lreg_cache [version]
+##     Cache Meridio images in the local registry. Use $MERIDIOVER by default
+cmd_lreg_cache() {
+	cmd_env
 	local ver=$1
+	test -n "$1" || ver=$MERIDIOVER
 	local images=$($XCLUSTER ovld images)/images.sh
 	local f
 	for f in frontend ipam load-balancer nsp proxy tapa; do
-		$images lreg_upload --strip-host \
-			registry.nordix.org/cloud-native/meridio/$f:$ver
+		$images lreg_cache \
+			registry.nordix.org/cloud-native/meridio/$f:$ver || die
 	done
 }
 
@@ -214,7 +216,7 @@ cmd_build_images() {
 
 	test -n "$__registry" || __registry=registry.nordix.org/cloud-native/meridio
 	test -n "$__version" || __version=local
-	test -n "$__nfqlb" || __nfqlb=1.0.0
+	test -n "$__nfqlb" || __nfqlb=1.1.0
 
 	for n in frontend ipam load-balancer nsp proxy tapa; do
 		x=$__out/$n
@@ -431,12 +433,8 @@ mconnect_trench() {
 ##     Scaling targets. By changing replicas and by disconnect targets
 ##     from the stream.
 test_scale() {
-	if test "$__local" = "yes"; then
-		x="images:local"
-		export __local
-	fi
 	test -n "$__cnt" || __cnt=1
-	tlog "=== forwarder-test: Scale target cnt=$__cnt $x"
+	tlog "=== forwarder-test: Scale target cnt=$__cnt"
 	test_start
 	local trench=red
 	trench_test $trench
@@ -461,11 +459,7 @@ test_scale() {
 ##     Test port-NAT. Extra flow with "local-port" are added. Some
 ##     flows with invalid dport are added that should be ignored.
 test_port_nat_basic() {
-	if test "$__local" = "yes"; then
-		x="images:local"
-		export __local
-	fi
-	tlog "=== forwarder-test: port-NAT. $x"
+	tlog "=== forwarder-test: port-NAT."
 	test_start
 	local trench=red
 	trench_test $trench
@@ -481,11 +475,7 @@ test_port_nat_basic() {
 ##   test port_nat_vip
 ##     Test port-NAT. VIPs are added and removed. VIP segments are used.
 test_port_nat_vip() {
-	if test "$__local" = "yes"; then
-		x="images:local"
-		export __local
-	fi
-	tlog "=== forwarder-test: port-NAT VIPs. $x"
+	tlog "=== forwarder-test: port-NAT VIPs."
 	test_start
 	local trench=red
 	trench_test $trench

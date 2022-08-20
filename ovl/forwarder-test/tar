@@ -25,8 +25,8 @@ test -n "$1" || die "No out-file"
 mkdir -p $tmp
 cp -R $dir/default/* $tmp
 
-test -n "$MERIDIO_VERSION" && \
-	$dir/forwarder-test.sh chversion --dir=$tmp $MERIDIO_VERSION
+test -n "$MERIDIOVER" && \
+	$dir/forwarder-test.sh chversion --dir=$tmp $MERIDIOVER
 
 $XCLUSTER install_prog --dest=$tmp envsubst
 

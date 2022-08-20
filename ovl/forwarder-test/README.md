@@ -22,12 +22,11 @@ Add "1000::1" for ipv6, e.g. 169.254.101.0/24 -> 1000::1:169.254.101.0/120
 
 ## Usage
 
-A local registry is required. Pre-load if necessary;
+A local registry is *required*. Pre-load if necessary;
 ```
 images lreg_preload k8s-pv
 images lreg_preload spire
 images lreg_preload nsm-ovs
-images lreg_preload forwarder-test
 ```
 
 Start cluster with NSM only;
@@ -39,6 +38,33 @@ xcluster_NSM_FORWARDER=ovs ./forwarder-test.sh test start > $log
 #images lreg_preload k8s-cni-calico
 xcadmin k8s_test --cni=calico forwarder-test start > $log
 ```
+
+By default local built Meridio images are used (tag ":local"). The
+Meridio source is supposed to be in "$MERIDIOD" which defaults to
+`$GOPATH/src/github.com/Nordix/Meridio`. A local `go` is required;
+
+```
+#export MERIDIOVER=local  # (the default)
+./forwarder-test.sh build_base_image
+./forwarder-test.sh build_images
+./forwarder-test.sh build_app_image
+```
+
+To use Meridio images build with `make`;
+```
+export MERIDIOVER=$USER    # (or whatever you like)
+cd /path/to/Meridio
+make VERSION=$MERIDIOVER REGISTRY=localhost:5000/cloud-native/meridio
+```
+
+To use a released Meridio version;
+```
+export MERIDIOVER=v0.7.1
+./forwarder-test.sh lreg_preload
+```
+
+A older version of `Meridio` may require an older version of NSM.
+
 
 Run default test;
 ```
