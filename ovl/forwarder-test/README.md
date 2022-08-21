@@ -40,18 +40,26 @@ Start cluster with NSM only;
 xcadmin k8s_test --cni=calico forwarder-test start > $log
 ```
 
-### Install Meridio with helm
+### Meridio e2e
 
 Build Meridio;
 ```
-cd /path/to/Meridio
+eval $(./forwarder-test.sh env | grep MERIDIOD)
+cd $MERIDIOD
 make REGISTRY=localhost:5000/cloud-native/meridio
 ```
+Note the added "cloud-native/" compared to the default registry.
 
 ```
 eval $(./forwarder-test.sh env | grep MERIDIOD)
+xcluster_NSM_NAMESPACE=nsm ./forwarder-test.sh test start_e2e > $log
 helm install $MERIDIOD/deployments/helm/ -f ./helm/values-a.yaml \
   --generate-name --create-namespace --namespace red
+helm install $MERIDIOD/examples/target/helm/ --generate-name \
+  --create-namespace --namespace red --set applicationName=target-a \
+  --set default.trench.name=trench-a
+# On vm-202
+mconnect -address 20.0.0.1:4000 -nconn 100
 ```
 
 
@@ -92,7 +100,7 @@ connectivity from `vm-202` using [mconnect](https://github.com/Nordix/mconnect).
 ./forwarder-test.sh  # Help printout
 ./forwarder-test.sh test > $log
 # Or
-xcadmin k8s_test --cni=calico forwarder-test  --trenches=red > $log
+xcadmin k8s_test --cni=calico forwarder-test --trenches=red > $log
 ```
 
 Variations;
@@ -112,7 +120,6 @@ can be executed after some time;
 ```
 ./forwarder-test.sh test --trenches=red --reconnect-delay=120 > $log
 ```
-
 
 
 ### Scaling test

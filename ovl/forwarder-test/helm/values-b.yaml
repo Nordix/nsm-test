@@ -112,12 +112,12 @@ vlan:
   fe:
     gateways:
       - name: gateway1
-        address: 169.254.102.250
+        address: 169.254.102.254
         ipFamily: ipv4
         bfd: false
         protocol: static
       - name: gateway2
-        address: 1000::1:169.254.102.250
+        address: 1000::1:169.254.102.254
         ipFamily: ipv6
         bfd: false
         protocol: static

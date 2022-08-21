@@ -334,6 +334,15 @@ test_start() {
 	unset otcprog
 }
 
+##   test start_e2e
+##     Start cluster with NSM and prepare for e2e or helm load
+test_start_e2e() {
+	test_start
+	otc 202 "setup_vlan --tag=100 eth3"
+	otc 202 "setup_vlan --tag=200 eth3"
+	otc 202 e2e_vip_route
+}
+
 ##   test [--trenches=red,...] [--use-multus] [--bgp] trench (default)
 ##     Test trenches. The default is to test all 3 trenches
 ##     Problems has been observed "after some time" so if
