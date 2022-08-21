@@ -22,6 +22,9 @@ Add "1000::1" for ipv6, e.g. 169.254.101.0/24 -> 1000::1:169.254.101.0/120
 
 ## Usage
 
+Prerequisite; A [ctraffic](https://github.com/Nordix/ctraffic) release
+must be downloaded.
+
 A local registry is *required*. Pre-load if necessary;
 ```
 images lreg_preload k8s-pv
@@ -33,14 +36,44 @@ Start cluster with NSM only;
 ```
 ./forwarder-test.sh test start > $log
 # Or;
-xcluster_NSM_FORWARDER=ovs ./forwarder-test.sh test start > $log
-# Or;
 #images lreg_preload k8s-cni-calico
 xcadmin k8s_test --cni=calico forwarder-test start > $log
 ```
 
-By default local built Meridio images are used (tag ":local"). The
-Meridio source is supposed to be in "$MERIDIOD" which defaults to
+### Install Meridio with helm
+
+Build Meridio;
+```
+cd /path/to/Meridio
+make REGISTRY=localhost:5000/cloud-native/meridio
+```
+
+```
+eval $(./forwarder-test.sh env | grep MERIDIOD)
+helm install $MERIDIOD/deployments/helm/ -f ./helm/values-a.yaml \
+  --generate-name --create-namespace --namespace red
+```
+
+
+### OVS forwarder
+
+To use `forwarder-ovs` ovs must be started on the node. This is done
+by [ovl/ovs](https://github.com/Nordix/xcluster/tree/master/ovl/ovs)
+which in turn needs a locally build kernel.
+
+```
+#xc kernel_build   # (if needed)
+cdo ovs
+./ovs.sh build
+# Now forwarder-ovs can be used by Meridio;
+cdo forwarder-test
+xcluster_NSM_FORWARDER=ovs ./forwarder-test.sh test --trenches=red > $log
+```
+
+## Tests
+
+Simplified Meridio images are used (tag ":local"). The Meridio source
+is supposed to be in "$MERIDIOD" which defaults to
 `$GOPATH/src/github.com/Nordix/Meridio`. A local `go` is required;
 
 ```
@@ -49,34 +82,6 @@ Meridio source is supposed to be in "$MERIDIOD" which defaults to
 ./forwarder-test.sh build_images
 ./forwarder-test.sh build_app_image
 ```
-
-To use Meridio images build with `make`;
-```
-export MERIDIOVER=$USER    # (or whatever you like)
-cd /path/to/Meridio
-make VERSION=$MERIDIOVER REGISTRY=localhost:5000/cloud-native/meridio
-```
-
-To use a released Meridio version;
-```
-export MERIDIOVER=v0.7.1
-./forwarder-test.sh lreg_preload
-```
-
-A older version of `Meridio` may require an older version of NSM.
-
-
-Run default test;
-```
-#images lreg_preload default
-./forwarder-test.sh test > $log
-# Or;
-xcadmin k8s_test --cni=calico forwarder-test > $log
-```
-
-
-
-## Tests
 
 The default test ("trench") starts three trenches and test external
 connectivity from `vm-202` using [mconnect](https://github.com/Nordix/mconnect).
@@ -87,7 +92,7 @@ connectivity from `vm-202` using [mconnect](https://github.com/Nordix/mconnect).
 ./forwarder-test.sh  # Help printout
 ./forwarder-test.sh test > $log
 # Or
-xcadmin k8s_test --cni=calico forwarder-test > $log
+xcadmin k8s_test --cni=calico forwarder-test  --trenches=red > $log
 ```
 
 Variations;

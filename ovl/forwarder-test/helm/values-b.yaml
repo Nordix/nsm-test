@@ -23,7 +23,7 @@ configuration:
 
 loadBalancer:
   image: load-balancer
-  version: local
+  version: latest
   networkServiceName: load-balancer
   probe:
     readiness:
@@ -31,14 +31,14 @@ loadBalancer:
 
 frontEnd:
   image: frontend
-  version: local
+  version: latest
   probe:
     readiness:
       service: "Readiness"
 
 proxy:
   image: proxy
-  version: local
+  version: latest
   networkServiceName: proxy.load-balancer
   probe:
     readiness:
@@ -62,7 +62,7 @@ ipam:
 
 nsp:
   image: nsp
-  version: local
+  version: latest
   port: 7778
   targetPort: 7778
   serviceName: nsp-service
@@ -94,14 +94,14 @@ subnetPool:
 
 vlanNSE:
   image: cmd-nse-remote-vlan
-  version: v1.4.0
+  version: v1.5.0
   probe:
     addr: :5003
     spiffe: true
 
 vlanNSC:
   image: cmd-nsc
-  version: v1.4.0
+  version: v1.5.0-nodns
 
 vlan:
   networkServiceName: external-vlan

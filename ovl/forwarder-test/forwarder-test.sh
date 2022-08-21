@@ -38,11 +38,6 @@ dbg() {
 cmd_env() {
 	test "$env_set" = "yes" && return 0
 
-	if test "$cmd" = "env"; then
-		set | grep -E '^(__.*)='
-		return 0
-	fi
-
 	test -n "$MERIDIOD" || MERIDIOD=$GOPATH/src/github.com/Nordix/Meridio
 	test -n "$MERIDIOVER" || MERIDIOVER=local
 	test -n "$xcluster_NSM_FORWARDER" || export xcluster_NSM_FORWARDER=vpp
@@ -59,6 +54,12 @@ cmd_env() {
 		export __mem=4096
 	fi
 	export __nvm
+
+	if test "$cmd" = "env"; then
+		set | grep -E '^(__.*|MERIDIOD|MERIDIOVER)='
+		return 0
+	fi
+
 	test -n "$xcluster_DOMAIN" || xcluster_DOMAIN=xcluster
 	test -n "$XCLUSTER" || die 'Not set [$XCLUSTER]'
 	test -x "$XCLUSTER" || die "Not executable [$XCLUSTER]"
@@ -67,26 +68,26 @@ cmd_env() {
 	env_set=yes
 }
 
-##   meridio_e2e --dest=dir
-##     Prepare Meridio e2e
-cmd_meridio_e2e() {
+##   generate_e2e --dest=dir
+##     Generate Meridio e2e manifests
+cmd_generate_e2e() {
 	test -n "$__dest" || die "No dest"
 	test -d "$__dest" || die "Not a directory [$__dest]"
-	local meridiod=$GOPATH/src/github.com/Nordix/Meridio
+	cmd_env
 
-	helm template $meridiod/deployments/helm/ -f $dir/helm/values-a.yaml \
+	helm template $MERIDIOD/deployments/helm/ -f $dir/helm/values-a.yaml \
 		--generate-name --create-namespace --namespace red \
 		> $__dest/trench-a.yaml 2> /dev/null
 
-	helm template $meridiod/deployments/helm/ -f $dir/helm/values-b.yaml \
+	helm template $MERIDIOD/deployments/helm/ -f $dir/helm/values-b.yaml \
 		--generate-name --create-namespace --namespace red \
 		> $__dest/trench-b.yaml 2> /dev/null
 
-	helm template $meridiod/examples/target/helm/ --generate-name \
+	helm template $MERIDIOD/examples/target/helm/ --generate-name \
 		--create-namespace --namespace red --set applicationName=target-a \
 		--set default.trench.name=trench-a > $__dest/target-a.yaml 2> /dev/null
 
-	helm template $meridiod/examples/target/helm/ --generate-name \
+	helm template $MERIDIOD/examples/target/helm/ --generate-name \
 		--create-namespace --namespace red --set applicationName=target-b \
 		--set default.trench.name=trench-b > $__dest/target-b.yaml 2> /dev/null
 }
