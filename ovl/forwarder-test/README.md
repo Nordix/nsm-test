@@ -22,8 +22,11 @@ Add "1000::1" for ipv6, e.g. 169.254.101.0/24 -> 1000::1:169.254.101.0/120
 
 ## Usage
 
-Prerequisite; A [ctraffic](https://github.com/Nordix/ctraffic) release
-must be downloaded.
+Prerequisites;
+
+* A [ctraffic](https://github.com/Nordix/ctraffic) release must be downloaded.
+* The `$MERIDIOD` must point at the Meridio source, default
+  "$GOPATH/src/github.com/Nordix/Meridio"
 
 A local registry is *required*. Pre-load if necessary;
 ```
@@ -42,6 +45,8 @@ xcadmin k8s_test --cni=calico forwarder-test start > $log
 
 ### Meridio e2e
 
+Attempt to setup `xcluster` for Meridio e2e.
+
 Build Meridio;
 ```
 eval $(./forwarder-test.sh env | grep MERIDIOD)
@@ -50,9 +55,17 @@ make REGISTRY=localhost:5000/cloud-native/meridio
 ```
 Note the added "cloud-native/" compared to the default registry.
 
+Pre-load the private registry;
+```
+mkdir -p /tmp/meridio_e2e
+./forwarder-test.sh generate_e2e --dest=/tmp/meridio_e2e
+images lreg_preload /tmp/meridio_e2e
+```
+
+Start the cluster and load trench-a with helm;
 ```
 eval $(./forwarder-test.sh env | grep MERIDIOD)
-xcluster_NSM_NAMESPACE=nsm ./forwarder-test.sh test start_e2e > $log
+./forwarder-test.sh test start_e2e > $log
 helm install $MERIDIOD/deployments/helm/ -f ./helm/values-a.yaml \
   --generate-name --create-namespace --namespace red
 helm install $MERIDIOD/examples/target/helm/ --generate-name \
@@ -61,6 +74,12 @@ helm install $MERIDIOD/examples/target/helm/ --generate-name \
 # On vm-202
 mconnect -address 20.0.0.1:4000 -nconn 100
 ```
+
+Automatic setup and test;
+```
+./forwarder-test.sh test --no-stop meridio_e2e > $log
+```
+
 
 
 ### OVS forwarder

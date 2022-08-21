@@ -534,9 +534,9 @@ cmd_tcase_e2e_trenches() {
 	tcase "Start Meridio e2e trenches"
 	local ns t
 	ns=red
-	kubectl create namespace $ns
-
 	for t in a b; do
+		test "$t" = "b" && ns=blue
+		kubectl create namespace $ns
 		kubectl="kubectl -n $ns"
 		$kubectl apply -f /etc/kubernetes/meridio-e2e/trench-$t.yaml || tdie
 		test_statefulset ipam-trench-$t 120
@@ -550,14 +550,18 @@ cmd_tcase_e2e_trenches() {
 cmd_tcase_e2e_targets() {
 	tcase "Start Meridio e2e targets"
 	local ns t
-	ns=red
 
+	ns=red
 	for t in a b; do
+		test "$t" = "b" && ns=blue
 		kubectl="kubectl -n $ns"
 		$kubectl apply -f /etc/kubernetes/meridio-e2e/target-$t.yaml || tdie
 	done	
 
+	ns=red
 	for t in a b; do
+		test "$t" = "b" && ns=blue
+		kubectl="kubectl -n $ns"
 		test_deployment target-$t 120 || tdie
 	done	
 }

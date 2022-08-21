@@ -337,6 +337,8 @@ test_start() {
 ##   test start_e2e
 ##     Start cluster with NSM and prepare for e2e or helm load
 test_start_e2e() {
+	export __e2e=yes
+	export xcluster_NSM_NAMESPACE=nsm
 	test_start
 	otc 202 "setup_vlan --tag=100 eth3"
 	otc 202 "setup_vlan --tag=200 eth3"
@@ -559,16 +561,17 @@ test_multus() {
 ##     Test with meridio_e2e
 test_meridio_e2e() {
 	tlog "=== forwarder-test: Meridio e2e"
-	export xcluster_NSM_NAMESPACE=nsm
-	export __nrouters=0
 	export __e2e=yes
-	test_start
+	test_start_e2e
 	otc 1 e2e_trenches
 	xcbr3_add_vlan 100
 	xcbr3_add_vlan 200
 	xcbr3_ping_lb 169.254.101.1
+	xcbr3_ping_lb 169.254.101.2
 	xcbr3_ping_lb 169.254.102.1
+	xcbr3_ping_lb 169.254.102.2
 	otc 1 e2e_targets
+	otc 202 "mconnect_adr 20.0.0.1:4000"
 	xcluster_stop
 }
 xcbr3_add_vlan() {

@@ -59,7 +59,7 @@ if test "$__e2e" = "yes"; then
 	log "Including Meridio e2e"
 	d=$tmp/etc/kubernetes/meridio-e2e
 	mkdir -p $d
-	$dir/forwarder-test.sh meridio_e2e --dest=$d 2> /dev/null || die
+	$dir/forwarder-test.sh generate_e2e --dest=$d 2> /dev/null || die
 fi
 
 cd $tmp
