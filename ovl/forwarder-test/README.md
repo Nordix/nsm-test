@@ -208,41 +208,6 @@ manifest to be loaded with `kubectl`. Test manually with;
 
 
 
-## Local images
-
-For development local built images can be used. The images are *not*
-built in the same way as with `make` in the Meridio top
-directory. They contain the same binaries, but start-up is simplified
-to make debug easier.
-
-```
-./forwarder-test.sh build_image
-#./forwarder-test.sh build_image ipam    # To build just one
-```
-
-This will compile the meridio programs, build the images and upload
-them to the local registry.
-
-To use the local images start the test with `--local`, example;
-
-```
-./forwarder-test.sh test --local --trenches=red trench > $log
-```
-
-
-The local images works as the real ones but lacks the probes. The
-reason for omitting the probes is to simplify trouble shooting when
-the probes fail. To simplify trouble shooting more you can prevent the
-meridio program from starting by setting;
-
-```yaml
-           env:
-           - name: NO_START
-              value: "yes"
-```
-
-This let you login to the POD and start the program manually.
-
 
 ## Multus
 
