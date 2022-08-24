@@ -38,12 +38,13 @@ findar() {
 	test -r $ar
 }
 
-##  env
-##    Print environment.
+##   env
+##     Print environment.
 ##
 cmd_env() {
 	test "$env_set" = "yes" && return 0
 
+	test -n "$KIND_CLUSTER_NAME" || export KIND_CLUSTER_NAME=meridio
 	test -n "$MERIDIOD" || MERIDIOD=$GOPATH/src/github.com/Nordix/Meridio
 	test -n "$MERIDIOVER" || MERIDIOVER=local
 	test -n "$xcluster_NSM_FORWARDER" || export xcluster_NSM_FORWARDER=vpp
@@ -62,7 +63,7 @@ cmd_env() {
 	export __nvm
 
 	if test "$cmd" = "env"; then
-		set | grep -E '^(__.*|MERIDIOD|MERIDIOVER)='
+		set | grep -E '^(__.*|MERIDIO.*|KIND_.*)='
 		return 0
 	fi
 
@@ -74,8 +75,9 @@ cmd_env() {
 	env_set=yes
 }
 
-##   generate_e2e --dest=dir
-##     Generate Meridio e2e manifests
+# obsolete;
+#   generate_e2e --dest=dir
+#     Generate Meridio e2e manifests
 cmd_generate_e2e() {
 	test -n "$__dest" || die "No dest"
 	test -d "$__dest" || die "Not a directory [$__dest]"
@@ -98,6 +100,136 @@ cmd_generate_e2e() {
 		--set default.trench.name=trench-b > $__dest/target-b.yaml 2> /dev/null
 }
 
+##   kind_start
+##     Start a Kubernetes-in-Docker (KinD) cluster for Meridio tests.
+##     NOTE: Images are loaded from the private registry!
+cmd_kind_start() {
+	cmd_kind_stop > /dev/null 2>&1
+	test -n "$__kind_config" || __kind_config=$dir/kind/meridio.yaml
+	test -r $__kind_config || die "Not readable [$__kind_config]"
+	log "Start KinD cluster [$KIND_CLUSTER_NAME] ..."
+	kind create cluster --name $KIND_CLUSTER_NAME --config $__kind_config || die
+}
+##   kind_stop
+##     Stop and delete KinD cluster
+cmd_kind_stop() {
+	cmd_env
+	kind delete cluster --name $KIND_CLUSTER_NAME
+}
+##   kind_sh [node]
+##     Open a xterm-shell on a KinD node (default control-plane).
+cmd_kind_sh() {
+	cmd_env
+	local node=control-plane
+	test -n "$1" && node=$1
+	xterm -bg "#040" -fg wheat -T $node -e docker exec -it $KIND_CLUSTER_NAME-$node bash &
+}
+##   kind_start_gw <name>
+##     Start a gw-container. ./kind/<name>  mounted under /etc/meridio.
+##     By default "bird" is started.
+cmd_kind_start_gw() {
+	test -n "$1" || die "No name"
+	docker kill "$1" > /dev/null 2>&1
+	docker rm "$1" > /dev/null 2>&1
+	test -d $dir/kind/$1 && cd $dir/kind/$1
+	local pwd=$(readlink -f .)
+	local image=registry.nordix.org/cloud-native/meridio/meridiogw:local
+	docker run -t -d --rm --network="kind" --name=$1 --privileged \
+		--volume $pwd:/etc/meridio $image
+}
+# internal help function
+helm_install() {
+	mkdir -p $tmp
+	local log=$tmp/helm.log
+	if ! helm install $@ > $log 2>&1; then
+		cat $log
+		die "helm install $@"
+	fi
+	return 0
+}
+##   kind_start_nsm
+##     Start a KinD cluster with spire and NSM
+cmd_kind_start_nsm() {
+	cmd_kind_start
+	kubectl apply -k $MERIDIOD/docs/demo/deployments/spire > /dev/null 2>&1 \
+		|| die "kubectl apply -k $MERIDIOD/docs/demo/deployments/spire"
+	helm_install $MERIDIOD/docs/demo/deployments/nsm --generate-name \
+		--create-namespace --namespace nsm
+	cmd_kind_check_nsm > /dev/null
+}
+cmd_kind_check_nsm() {
+	kubectl="kubectl -n spire"
+	test_statefulset spire-server 120
+	test_daemonset spire-agent 120
+	kubectl="kubectl -n nsm"
+	test_deployment nsm-registry 120
+	test_daemonset nsmgr 120
+	test_daemonset forwarder-vpp 120
+	test_deployment admission-webhook-k8s 120
+}
+##   kind_start_e2e
+##     Start a KinD cluster for Meridio e2e
+cmd_kind_start_e2e() {
+	cmd_kind_start_nsm
+	cmd_kind_start_gw trench-a > /dev/null
+	cmd_kind_start_gw trench-b > /dev/null
+
+	helm_install $MERIDIOD/deployments/helm/ --generate-name \
+		--create-namespace --namespace red --set trench.name=trench-a \
+		--set ipFamily=dualstack
+	helm_install $MERIDIOD/deployments/helm/ --generate-name \
+		--create-namespace --namespace red --set trench.name=trench-b \
+		--set vlan.id=200 --set ipFamily=dualstack
+	cmd_kind_check_trenches > /dev/null
+
+	helm_install $MERIDIOD/examples/target/helm/ --generate-name \
+		--create-namespace --namespace red --set applicationName=target-a \
+		--set default.trench.name=trench-a
+	helm_install $MERIDIOD/examples/target/helm/ --generate-name \
+		--create-namespace --namespace red --set applicationName=target-b \
+		--set default.trench.name=trench-b
+	cmd_kind_check_targets > /dev/null
+}
+cmd_kind_check_trenches() {
+	kubectl="kubectl -n red"
+	local t
+	for t in a b; do
+		test_statefulset ipam-trench-$t 120
+		test_statefulset nsp-trench-$t 120
+		test_deployment load-balancer-trench-$t 120
+		test_deployment nse-vlan-trench-$t 120
+		test_daemonset proxy-trench-$t 120
+	done
+}
+cmd_kind_check_targets() {
+	kubectl="kubectl -n red"
+	local t
+	for t in a b; do
+		test_deployment target-$t 120
+	done
+}
+##   kind_stop_e2e
+##     Stop a KinD cluster and docker GWs
+cmd_kind_stop_e2e() {
+	cmd_kind_stop > /dev/null
+	docker kill trench-a trench-b trench-c > /dev/null 2>&1
+	docker rm trench-a trench-b trench-c > /dev/null 2>&1
+}
+##   kind_e2e
+##     Run Meridio e2e in KinD
+cmd_kind_e2e() {
+	local start now
+	start=$(date +%s)
+	cmd_kind_stop_e2e
+	cmd_kind_start_e2e
+	cd $MERIDIOD
+	make e2e
+	cmd_kind_stop_e2e
+	now=$(date +%s)
+	echo "Execution time; $((now-start))s"
+}
+
+##
 ##   bird_dir
 ##   bird_build
 ##     Build the Bird routing suite
@@ -586,8 +718,9 @@ test_multus() {
 	xcluster_stop
 }
 
-##   test meridio_e2e
-##     Test with meridio_e2e
+# obsolete;
+#   test meridio_e2e
+#     Test with meridio_e2e
 test_meridio_e2e() {
 	tlog "=== forwarder-test: Meridio e2e"
 	export __e2e=yes

@@ -28,14 +28,15 @@ Prerequisites;
 * The `$MERIDIOD` must point at the Meridio source, default
   "$GOPATH/src/github.com/Nordix/Meridio"
 
-A local registry is *required*. Pre-load if necessary;
+A local registry is *required* (even for KinD). Pre-load if necessary;
 ```
 images lreg_preload k8s-pv
 images lreg_preload spire
 images lreg_preload nsm-ovs
+images lreg_preload ./default
 ```
 
-Start cluster with NSM only;
+Start xcluster with NSM only;
 ```
 ./forwarder-test.sh test start > $log
 # Or;
@@ -45,7 +46,8 @@ xcadmin k8s_test --cni=calico forwarder-test start > $log
 
 ### Meridio e2e
 
-Attempt to setup `xcluster` for Meridio e2e.
+Meridio e2e uses Kubernetes-in-Docker [KinD](https://kind.sigs.k8s.io).
+KinD shall be started in the main netns on your host (not in an xcluster netns).
 
 Build Meridio;
 ```
@@ -55,32 +57,11 @@ make REGISTRY=localhost:5000/cloud-native/meridio
 ```
 Note the added "cloud-native/" compared to the default registry.
 
-Pre-load the private registry;
+Run e2e;
 ```
-mkdir -p /tmp/meridio_e2e
-./forwarder-test.sh generate_e2e --dest=/tmp/meridio_e2e
-images lreg_preload /tmp/meridio_e2e
+#./forwarder-test.sh build_gwimage
+./forwarder-test.sh kind_e2e
 ```
-
-Start the cluster and load trench-a with helm;
-```
-eval $(./forwarder-test.sh env | grep MERIDIOD)
-./forwarder-test.sh test start_e2e > $log
-helm install $MERIDIOD/deployments/helm/ -f ./helm/values-a.yaml \
-   --set ipFamily=dualstack --generate-name --create-namespace --namespace red
-helm install $MERIDIOD/examples/target/helm/ --generate-name \
-  --create-namespace --namespace red --set applicationName=target-a \
-  --set default.trench.name=trench-a
-# On vm-202
-mconnect -address 20.0.0.1:4000 -nconn 100
-```
-
-Automatic setup and test;
-```
-./forwarder-test.sh test --no-stop meridio_e2e > $log
-```
-
-
 
 ### OVS forwarder
 

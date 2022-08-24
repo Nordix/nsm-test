@@ -1,5 +1,5 @@
 ARG base_image=registry.nordix.org/cloud-native/meridio/base:local
 FROM ${base_image}
-RUN apk add bird ethtool gettext
+RUN apk add bird ethtool
 COPY . .
 CMD ["/root/start-command"]
