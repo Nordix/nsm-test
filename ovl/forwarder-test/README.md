@@ -67,7 +67,7 @@ Start the cluster and load trench-a with helm;
 eval $(./forwarder-test.sh env | grep MERIDIOD)
 ./forwarder-test.sh test start_e2e > $log
 helm install $MERIDIOD/deployments/helm/ -f ./helm/values-a.yaml \
-  --generate-name --create-namespace --namespace red
+   --set ipFamily=dualstack --generate-name --create-namespace --namespace red
 helm install $MERIDIOD/examples/target/helm/ --generate-name \
   --create-namespace --namespace red --set applicationName=target-a \
   --set default.trench.name=trench-a

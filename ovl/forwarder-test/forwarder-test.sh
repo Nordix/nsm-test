@@ -32,6 +32,12 @@ dbg() {
 	test -n "$__verbose" && echo "$prg: $*" >&2
 }
 
+findar() {
+	ar=$ARCHIVE/$1
+	test -r $ar || ar=$HOME/Downloads/$1
+	test -r $ar
+}
+
 ##  env
 ##    Print environment.
 ##
@@ -77,18 +83,18 @@ cmd_generate_e2e() {
 
 	helm template $MERIDIOD/deployments/helm/ -f $dir/helm/values-a.yaml \
 		--generate-name --create-namespace --namespace red \
-		> $__dest/trench-a.yaml 2> /dev/null
+		--set ipFamily=dualstack > $__dest/trench-a.yaml 2> /dev/null
 
 	helm template $MERIDIOD/deployments/helm/ -f $dir/helm/values-b.yaml \
-		--generate-name --create-namespace --namespace red \
-		> $__dest/trench-b.yaml 2> /dev/null
+		--generate-name --create-namespace --namespace blue \
+		--set ipFamily=dualstack > $__dest/trench-b.yaml 2> /dev/null
 
 	helm template $MERIDIOD/examples/target/helm/ --generate-name \
 		--create-namespace --namespace red --set applicationName=target-a \
 		--set default.trench.name=trench-a > $__dest/target-a.yaml 2> /dev/null
 
 	helm template $MERIDIOD/examples/target/helm/ --generate-name \
-		--create-namespace --namespace red --set applicationName=target-b \
+		--create-namespace --namespace blue --set applicationName=target-b \
 		--set default.trench.name=trench-b > $__dest/target-b.yaml 2> /dev/null
 }
 
@@ -255,6 +261,29 @@ cmd_build_app_image() {
 	export __out
 	$images mkimage --upload --strip-host --tag=$__registry/meridio-app:$__version $dir/images/meridio-app
 }
+##   build_gwimage
+##     A GW container used in Meridio e2e tests
+cmd_build_gwimage() {
+	test -n "$NFQLB_DIR" || NFQLB_DIR=$HOME/tmp/nfqlb
+	test -x $NFQLB_DIR/bin/ipu || die "Not executable [$NFQLB_DIR/bin/ipu]"
+	test -n "$__registry" || __registry=registry.nordix.org/cloud-native/meridio
+	test -n "$__version" || __version=local
+
+	rm -rf $tmp; mkdir -p $tmp/root $tmp/usr/bin
+	cp $dir/images/gw/meridiogw.sh $tmp/root
+	cp $NFQLB_DIR/bin/ipu $tmp/usr/bin
+	findar ctraffic.gz || die "Findar ctraffic.gz"
+	gzip -dc $ar > $tmp/usr/bin/ctraffic; chmod a+x $tmp/usr/bin/ctraffic
+	findar mconnect.xz || die "Findar mconnect.xz"
+	xz -dc $ar > $tmp/usr/bin/mconnect; chmod a+x $tmp/usr/bin/mconnect
+	
+	local dockerfile=$dir/images/Dockerfile.gw
+	sed -e "s,/start-command,/meridiogw.sh," < $dockerfile > $tmp/Dockerfile
+	docker build -t $__registry/meridiogw:$__version $tmp \
+		|| die "docker build meridiogw"
+	
+}
+
 
 ##
 ##   test --list
@@ -572,6 +601,7 @@ test_meridio_e2e() {
 	xcbr3_ping_lb 169.254.102.2
 	otc 1 e2e_targets
 	otc 202 "mconnect_adr 20.0.0.1:4000"
+	otc 202 "mconnect_adr [2000::1]:4000"
 	xcluster_stop
 }
 xcbr3_add_vlan() {
