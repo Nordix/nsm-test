@@ -25,7 +25,7 @@ spec:
         - name: NSM_CONNECT_TO
           value: nsm-registry.default:5002
         - name: NSM_SERVICES
-          value: 'finance-bridge { vlan: 100; via: service.domain.2}'
+          value: 'finance-bridge { vlan: 100; via: eth2}'
 # NSM > v1.3.x
         - name: NSM_CIDR_PREFIX
           value: "169.254.100.0/24,100:100::/64"

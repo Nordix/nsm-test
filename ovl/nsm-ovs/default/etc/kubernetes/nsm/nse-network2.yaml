@@ -24,7 +24,7 @@ spec:
         - name: NSM_CONNECT_TO
           value: nsm-registry.default:5002
         - name: NSM_SERVICES
-          value: 'network2 { vlan: 200; via: service.domain.2}'
+          value: 'network2 { vlan: 200; via: eth2}'
         - name: NSM_CIDR_PREFIX
           value: "169.254.102.0/24,100:102::/64"
         - name: NSM_POINT2POINT

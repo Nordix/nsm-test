@@ -1,9 +1,11 @@
 interfaces:
   - name: eth2
+    bridge: br0
     matches:
        - labelSelector:
-           - via: service.domain.2
+           - via: eth2
   - name: eth3
+    bridge: br0
     matches:
        - labelSelector:
-           - via: service.domain.3
+           - via: eth3
