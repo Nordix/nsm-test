@@ -5,7 +5,7 @@ interfaces:
        - labelSelector:
            - via: eth2
   - name: eth3
-    bridge: br0
+    bridge: br1
     matches:
        - labelSelector:
            - via: eth3

@@ -16,7 +16,7 @@ spec:
       containers:
       - env:
         - name: NSM_L2_RESOURCE_SELECTOR_FILE
-          value: /etc/nsm/DomainConfigFileOvs
+          value: /etc/nsm/DomainConfigFile
         - name: NSM_NAME
           valueFrom:
             fieldRef:

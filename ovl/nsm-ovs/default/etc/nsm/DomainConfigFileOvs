@@ -1,6 +1,0 @@
-interfaces:
-  - name: eth2
-    bridge: br0
-    matches:
-       - labelSelector:
-           - via: eth2

@@ -225,6 +225,15 @@ test_start_empty() {
 	otcw ifup
 }
 
+##   test all
+##     Combo test
+test_all() {
+	unset __no_stop
+	test_basic || die
+	test_udp || die
+	test_multivlan || die
+}
+
 ##   test start
 ##     Start cluster with NSM.
 test_start() {
