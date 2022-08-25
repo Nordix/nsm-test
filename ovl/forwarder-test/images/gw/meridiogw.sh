@@ -63,16 +63,16 @@ container_start() {
 	test -x /etc/meridio/init && exec /etc/meridio/init
 	test -r /etc/meridio/env && . /etc/meridio/env
 	sysctl -w net.ipv6.conf.all.disable_ipv6=0
-    sysctl -w net.ipv4.fib_multipath_hash_policy=1
-    sysctl -w net.ipv6.fib_multipath_hash_policy=1
-    sysctl -w net.ipv6.conf.all.forwarding=1
-    sysctl -w net.ipv4.conf.all.forwarding=1
-    sysctl -w net.ipv6.conf.all.accept_dad=0
+	sysctl -w net.ipv4.fib_multipath_hash_policy=1
+	sysctl -w net.ipv6.fib_multipath_hash_policy=1
+	sysctl -w net.ipv6.conf.all.forwarding=1
+	sysctl -w net.ipv4.conf.all.forwarding=1
+	sysctl -w net.ipv6.conf.all.accept_dad=0
 	ethtool -K eth0 tx off
-	if test -n "$VLAN_BASE"; then
-	   create_vlans
-	   mkdir -p /var/run/bird /val/log
-	   exec bird -d -c /etc/meridio/bgp.conf -s /var/run/bird/bird.ctl > /var/log/bird.log 2>&1
+	test -n "$VLAN_BASE" && create_vlans
+	if test -r /etc/meridio/bgp.conf; then
+		mkdir -p /var/run/bird
+		exec bird -d -c /etc/meridio/bgp.conf -s /var/run/bird/bird.ctl
 	fi
 	tail -f /dev/null
 }

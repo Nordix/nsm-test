@@ -100,7 +100,7 @@ cmd_generate_e2e() {
 		--set default.trench.name=trench-b > $__dest/target-b.yaml 2> /dev/null
 }
 
-##   kind_start
+##   kind_start [--kind-config=]
 ##     Start a Kubernetes-in-Docker (KinD) cluster for Meridio tests.
 ##     NOTE: Images are loaded from the private registry!
 cmd_kind_start() {
@@ -108,7 +108,8 @@ cmd_kind_start() {
 	test -n "$__kind_config" || __kind_config=$dir/kind/meridio.yaml
 	test -r $__kind_config || die "Not readable [$__kind_config]"
 	log "Start KinD cluster [$KIND_CLUSTER_NAME] ..."
-	kind create cluster --name $KIND_CLUSTER_NAME --config $__kind_config || die
+	kind create cluster --name $KIND_CLUSTER_NAME --config $__kind_config \
+		$KIND_CREATE_ARGS || die
 }
 ##   kind_stop
 ##     Stop and delete KinD cluster
@@ -169,49 +170,42 @@ cmd_kind_check_nsm() {
 }
 ##   kind_start_e2e
 ##     Start a KinD cluster for Meridio e2e
+KIND_TRENCHES="trench-a trench-b"
+KIND_TARGETS="target-a target-b"
 cmd_kind_start_e2e() {
 	cmd_kind_start_nsm
-	cmd_kind_start_gw trench-a > /dev/null
-	cmd_kind_start_gw trench-b > /dev/null
+	local t vlanid=100 ns=red
+	kubectl="kubectl -n $ns"
 
-	helm_install $MERIDIOD/deployments/helm/ --generate-name \
-		--create-namespace --namespace red --set trench.name=trench-a \
-		--set ipFamily=dualstack
-	helm_install $MERIDIOD/deployments/helm/ --generate-name \
-		--create-namespace --namespace red --set trench.name=trench-b \
-		--set vlan.id=200 --set ipFamily=dualstack
-	cmd_kind_check_trenches > /dev/null
-
-	helm_install $MERIDIOD/examples/target/helm/ --generate-name \
-		--create-namespace --namespace red --set applicationName=target-a \
-		--set default.trench.name=trench-a
-	helm_install $MERIDIOD/examples/target/helm/ --generate-name \
-		--create-namespace --namespace red --set applicationName=target-b \
-		--set default.trench.name=trench-b
-	cmd_kind_check_targets > /dev/null
-}
-cmd_kind_check_trenches() {
-	kubectl="kubectl -n red"
-	local t
-	for t in a b; do
-		test_statefulset ipam-trench-$t 120
-		test_statefulset nsp-trench-$t 120
-		test_deployment load-balancer-trench-$t 120
-		test_deployment nse-vlan-trench-$t 120
-		test_daemonset proxy-trench-$t 120
+	for t in $KIND_TRENCHES; do
+		cmd_kind_start_gw $t > /dev/null
+		helm_install $MERIDIOD/deployments/helm/ --generate-name \
+			--create-namespace --namespace $ns --set trench.name=$t \
+			--set vlan.id=$vlanid --set ipFamily=dualstack
+		vlanid=$((vlanid + 100))
 	done
-}
-cmd_kind_check_targets() {
-	kubectl="kubectl -n red"
-	local t
-	for t in a b; do
-		test_deployment target-$t 120
+	for t in $KIND_TRENCHES; do
+		test_statefulset ipam-$t 120 > /dev/null
+		test_statefulset nsp-$t 120 > /dev/null
+		test_deployment load-balancer-$t 120 > /dev/null
+		test_deployment nse-vlan-$t 120 > /dev/null
+		test_daemonset proxy-$t 120 > /dev/null
+	done
+
+	for t in $KIND_TARGETS; do
+		local tn=$(echo $t | sed -e 's,target,trench,')
+		helm_install meridio-$t $MERIDIOD/examples/target/helm/ \
+			--create-namespace --namespace $ns --set applicationName=$t \
+			--set default.trench.name=$tn
+	done
+	for t in $KIND_TARGETS; do
+		test_deployment $t 120 > /dev/null
 	done
 }
 ##   kind_stop_e2e
 ##     Stop a KinD cluster and docker GWs
 cmd_kind_stop_e2e() {
-	cmd_kind_stop > /dev/null
+	cmd_kind_stop > /dev/null 2>&1
 	docker kill trench-a trench-b trench-c > /dev/null 2>&1
 	docker rm trench-a trench-b trench-c > /dev/null 2>&1
 }
@@ -223,7 +217,7 @@ cmd_kind_e2e() {
 	cmd_kind_stop_e2e
 	cmd_kind_start_e2e
 	cd $MERIDIOD
-	make e2e
+	make e2e || die "make e2e"
 	cmd_kind_stop_e2e
 	now=$(date +%s)
 	echo "Execution time; $((now-start))s"
