@@ -75,6 +75,22 @@ cmd_env() {
 	env_set=yes
 }
 
+##   private_reg [--localhost]
+##     Print the address of the local private registry. --localhost will
+##     print "localhost:<port>" which is needed for local upload.
+cmd_private_reg() {
+	mkdir -p $tmp
+	docker inspect registry | jq -r '.[0].NetworkSettings' > $tmp/private_reg \
+		|| die "No private registry?"
+	local port=$(cat $tmp/private_reg | jq -r '.Ports."5000/tcp"[0].HostPort')
+	if test "$__localhost" = "yes"; then
+		echo "localhost:$port"
+		return 0
+	fi
+	local adr=$(cat $tmp/private_reg | jq -r .Gateway)
+	echo "$adr:$port"
+}
+
 # obsolete;
 #   generate_e2e --dest=dir
 #     Generate Meridio e2e manifests
@@ -105,7 +121,18 @@ cmd_generate_e2e() {
 ##     NOTE: Images are loaded from the private registry!
 cmd_kind_start() {
 	cmd_kind_stop > /dev/null 2>&1
-	test -n "$__kind_config" || __kind_config=$dir/kind/meridio.yaml
+	if test -z "$__kind_config"; then
+		# Use default kind config and alter the private registry if needed
+		local private_reg=$(cmd_private_reg)
+		log "Using private registry [$private_reg]"
+		if test "$private_reg" != "172.17.0.1:80"; then
+			cp $dir/kind/meridio.yaml $tmp
+			sed -i -e "s,172.17.0.1,$private_reg," $tmp/meridio.yaml
+			__kind_config=$tmp/meridio.yaml
+		else
+			__kind_config=$dir/kind/meridio.yaml
+		fi
+	fi
 	test -r $__kind_config || die "Not readable [$__kind_config]"
 	log "Start KinD cluster [$KIND_CLUSTER_NAME] ..."
 	kind create cluster --name $KIND_CLUSTER_NAME --config $__kind_config \

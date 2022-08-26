@@ -52,8 +52,9 @@ KinD shall be started in the main netns on your host (not in an xcluster netns).
 Build Meridio;
 ```
 eval $(./forwarder-test.sh env | grep MERIDIOD)
+private_reg=$(./forwarder-test.sh private_reg --localhost)
 cd $MERIDIOD
-make REGISTRY=localhost:5000/cloud-native/meridio
+make REGISTRY=$private_reg/cloud-native/meridio
 ```
 Note the added "cloud-native/" compared to the default registry.
 
