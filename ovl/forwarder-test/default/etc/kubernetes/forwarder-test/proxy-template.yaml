@@ -12,6 +12,8 @@ spec:
     metadata:
       labels:
         app: meridio-proxy
+#      annotations:
+#        container.apparmor.security.beta.kubernetes.io/proxy: runtime/default
     spec:
       initContainers:
         - name: sysctl-init

@@ -137,6 +137,11 @@ cmd_kind_start() {
 	log "Start KinD cluster [$KIND_CLUSTER_NAME] ..."
 	kind create cluster --name $KIND_CLUSTER_NAME --config $__kind_config \
 		$KIND_CREATE_ARGS || die
+	if test -x /usr/bin/busybox; then
+		#log "Installing busybox on control-plane and worker..."
+		docker cp /usr/bin/busybox $KIND_CLUSTER_NAME-control-plane:/bin
+		docker cp /usr/bin/busybox $KIND_CLUSTER_NAME-worker:/bin
+	fi
 }
 ##   kind_stop
 ##     Stop and delete KinD cluster
@@ -151,6 +156,30 @@ cmd_kind_sh() {
 	local node=control-plane
 	test -n "$1" && node=$1
 	xterm -bg "#040" -fg wheat -T $node -e docker exec -it $KIND_CLUSTER_NAME-$node bash &
+}
+##   kind_ovl <ovl> [kind-nodes...]
+##     Install an ovl on kind-nodes.
+cmd_kind_ovl() {
+	cmd_env
+	test -n "$1" || die "No ovl"
+	local ovl=$($XCLUSTER ovld $1)
+	test -n "$ovl" || exit 1
+	test -x $ovl/tar || die "Not executable [$ovl/tar]"
+	mkdir -p $tmp
+	$ovl/tar $tmp/ovl.tar
+	shift
+	local n
+	for n in $@; do
+		cat $tmp/ovl.tar | docker exec -i $KIND_CLUSTER_NAME-$n tar -C / --exclude=etc/init.d --no-overwrite-dir -h --no-same-owner -x
+	done
+}
+##   kind_install_ovs
+##     Install ovs on node "worker"
+cmd_kind_install_ovs() {
+	local n=worker
+	cmd_kind_ovl ovs $n
+	docker cp /lib/x86_64-linux-gnu/libcrypto.so.3 \
+		$KIND_CLUSTER_NAME-$n:/lib/x86_64-linux-gnu || die "docker cp"
 }
 ##   kind_start_gw <name>
 ##     Start a gw-container. ./kind/<name>  mounted under /etc/meridio.
@@ -175,10 +204,11 @@ helm_install() {
 	fi
 	return 0
 }
-##   kind_start_nsm
+##   kind_start_nsm [--no-kind-start]
 ##     Start a KinD cluster with spire and NSM
 cmd_kind_start_nsm() {
-	cmd_kind_start
+	cmd_env
+	test "$__no_kind_start" = "yes" || cmd_kind_start
 	kubectl apply -k $MERIDIOD/docs/demo/deployments/spire > /dev/null 2>&1 \
 		|| die "kubectl apply -k $MERIDIOD/docs/demo/deployments/spire"
 	helm_install $MERIDIOD/docs/demo/deployments/nsm --generate-name \
@@ -236,7 +266,7 @@ cmd_kind_stop_e2e() {
 	docker kill trench-a trench-b trench-c > /dev/null 2>&1
 	docker rm trench-a trench-b trench-c > /dev/null 2>&1
 }
-##   kind_e2e
+##   kind_e2e [--no-stop]
 ##     Run Meridio e2e in KinD
 cmd_kind_e2e() {
 	local start now
@@ -245,7 +275,7 @@ cmd_kind_e2e() {
 	cmd_kind_start_e2e
 	cd $MERIDIOD
 	make e2e || die "make e2e"
-	cmd_kind_stop_e2e
+	test "$__no_stop" != "yes" && cmd_kind_stop_e2e
 	now=$(date +%s)
 	echo "Execution time; $((now-start))s"
 }

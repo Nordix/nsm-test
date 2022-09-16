@@ -79,6 +79,35 @@ cdo forwarder-test
 xcluster_NSM_FORWARDER=ovs ./forwarder-test.sh test --trenches=red > $log
 ```
 
+#### [WIP] OVS forwarder in KinD
+
+**Work in progress!**
+
+Since the `forwarder-ovs` is unprepared for one OvS instance that spans
+multiple K8s nodes (as it does in KinD) we must start one single worker.
+
+* Remove one worker in `kind/meridio.yaml`
+
+* Alter vpp->ovs for the image in `docs/demo/deployments/nsm/values.yaml`
+
+Start KinD and manually start ovs;
+```
+./forwarder-test.sh kind_start
+./forwarder-test.sh kind_install_ovs
+./forwarder-test.sh kind_sh worker
+# On "worker"
+SYSTEM_ID=$(cat /etc/machine-id)
+mkdir -p /etc/openvswitch
+echo $SYSTEM_ID > /etc/openvswitch/system-id.conf
+ovsdb-tool create /etc/openvswitch/conf.db /usr/local/share/openvswitch/vswitch.ovsschema
+/usr/local/share/openvswitch/scripts/ovs-ctl --system-id=$SYSTEM_ID start
+# Back
+./forwarder-test.sh kind_start_nsm --no-kind-start
+```
+
+
+
+
 ## Tests
 
 Simplified Meridio images are used (tag ":local"). The Meridio source
