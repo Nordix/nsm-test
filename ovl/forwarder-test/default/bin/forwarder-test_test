@@ -288,8 +288,8 @@ cmd_tcase_e2e_vip_route() {
 		nexthop via 1000::1:169.254.101.1 \
 		nexthop via 1000::1:169.254.101.2 || tdie "ro ipv6"
 	ip ro replace 40.0.0.0/24 \
-		nexthop via 169.254.102.1 \
-		nexthop via 169.254.102.2 || tdie "ro ipv4 b"
+		nexthop via 169.254.101.1 \
+		nexthop via 169.254.101.2 || tdie "ro ipv4 b"
 }
 
 cmd_tcase_mconnect() {
@@ -530,40 +530,29 @@ cmd_tcase_bird() {
 	bird -c $f || tdie "Start bird"
 }
 
-cmd_tcase_e2e_trenches() {
-	tcase "Start Meridio e2e trenches"
-	local ns t
-	ns=red
-	for t in a b; do
-		test "$t" = "b" && ns=blue
-		kubectl create namespace $ns
-		kubectl="kubectl -n $ns"
-		$kubectl apply -f /etc/kubernetes/meridio-e2e/trench-$t.yaml || tdie
-		test_statefulset ipam-trench-$t 120
-		test_statefulset nsp-trench-$t 120
-		test_deployment load-balancer-trench-$t 120
-		test_deployment nse-vlan-trench-$t 120
-		test_daemonset proxy-trench-$t 120
-	done
+cmd_tcase_e2e_trench() {
+	test -n "$__ns" || __ns=red
+	tcase "Start Meridio e2e trench [$1] (ns=$__ns)"
+	test -n "$1" || tdie "No trench"
+	local t=$1
+	kubectl create namespace $__ns
+	kubectl="kubectl -n $__ns"
+	$kubectl apply -f /etc/kubernetes/meridio-e2e/trench-$t.yaml || tdie
+	test_statefulset ipam-trench-$t 120
+	test_statefulset nsp-trench-$t 120
+	test_deployment load-balancer-trench-$t 120
+	test_deployment nse-vlan-trench-$t 120
+	test_daemonset proxy-trench-$t 120
 }
 
-cmd_tcase_e2e_targets() {
-	tcase "Start Meridio e2e targets"
-	local ns t
-
-	ns=red
-	for t in a b; do
-		test "$t" = "b" && ns=blue
-		kubectl="kubectl -n $ns"
-		$kubectl apply -f /etc/kubernetes/meridio-e2e/target-$t.yaml || tdie
-	done	
-
-	ns=red
-	for t in a b; do
-		test "$t" = "b" && ns=blue
-		kubectl="kubectl -n $ns"
-		test_deployment target-$t 120 || tdie
-	done	
+cmd_tcase_e2e_target() {
+	test -n "$__ns" || __ns=red
+	tcase "Start Meridio e2e target [$1] (ns=$__ns)"
+	test -n "$1" || tdie "No trench"
+	local t=$1
+	kubectl="kubectl -n $__ns"
+	$kubectl apply -f /etc/kubernetes/meridio-e2e/target-$t.yaml || tdie
+	test_deployment target-$t 120 || tdie
 }
 
 . /etc/profile

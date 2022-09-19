@@ -497,6 +497,8 @@ cmd_test() {
 
 }
 
+##   test start_empty
+##     Start an empty cluster
 test_start_empty() {
 	export TOPOLOGY=multilan-router
 	. $($XCLUSTER ovld network-topology)/$TOPOLOGY/Envsettings
@@ -555,6 +557,8 @@ test_start_e2e() {
 	otc 202 "setup_vlan --tag=100 eth3"
 	otc 202 "setup_vlan --tag=200 eth3"
 	otc 202 e2e_vip_route
+	otc 1 "e2e_trench a"
+	otc 1 "e2e_target a"
 }
 
 ##   test [--trenches=red,...] [--use-multus] [--bgp] trench (default)

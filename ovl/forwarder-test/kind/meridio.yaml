@@ -3,7 +3,19 @@ apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
 - role: worker
+  kubeadmConfigPatches:
+    - |
+      kind: JoinConfiguration
+      nodeRegistration:
+        kubeletExtraArgs:
+          seccomp-default: "true"
 - role: worker
+  kubeadmConfigPatches:
+    - |
+      kind: JoinConfiguration
+      nodeRegistration:
+        kubeletExtraArgs:
+          seccomp-default: "true"
 containerdConfigPatches:
 - |-
     [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]

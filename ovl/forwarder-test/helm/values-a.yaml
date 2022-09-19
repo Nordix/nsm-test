@@ -72,7 +72,7 @@ nsp:
       addr: :7778
       spiffe: true
 
-ipFamily: ipv4  # ipv4 / ipv6 / dualstack
+ipFamily: dualstack  # ipv4 / ipv6 / dualstack
 
 vips:
   - name: vip1
