@@ -137,10 +137,28 @@ cmd_kind_start() {
 	log "Start KinD cluster [$KIND_CLUSTER_NAME] ..."
 	kind create cluster --name $KIND_CLUSTER_NAME --config $__kind_config \
 		$KIND_CREATE_ARGS || die
-	if test -x /usr/bin/busybox; then
-		#log "Installing busybox on control-plane and worker..."
+	if test -x /usr/bin/busyboxX; then
+		log "Installing busybox on control-plane and worker..."
 		docker cp /usr/bin/busybox $KIND_CLUSTER_NAME-control-plane:/bin
 		docker cp /usr/bin/busybox $KIND_CLUSTER_NAME-worker:/bin
+	fi
+
+	# Install a kubeconfig on workers
+	local w
+	local k=/etc/kubernetes/kubeconfig
+	mkdir -p $tmp
+	local kint=$tmp/kubeconfig
+	kind get kubeconfig --name $KIND_CLUSTER_NAME --internal > $kint
+	for w in worker worker2; do
+		cat $kint | docker exec -i $KIND_CLUSTER_NAME-$w tee $k > /dev/null
+		echo "export KUBECONFIG=$k" | docker exec -i $KIND_CLUSTER_NAME-$w \
+			tee -a /etc/profile.d/01-locale-fix.sh > /dev/null
+	done
+
+	if test "$__multus" = "yes"; then
+		log "Installing Multus"
+		local d=$($XCLUSTER ovld multus)/default/etc/kubernetes/multus
+		kubectl apply -f $d/multus-install.yaml
 	fi
 }
 ##   kind_stop
@@ -155,7 +173,7 @@ cmd_kind_sh() {
 	cmd_env
 	local node=control-plane
 	test -n "$1" && node=$1
-	xterm -bg "#040" -fg wheat -T $node -e docker exec -it $KIND_CLUSTER_NAME-$node bash &
+	xterm -bg "#040" -fg wheat -T $node -e docker exec -it $KIND_CLUSTER_NAME-$node bash -l &
 }
 ##   kind_ovl <ovl> [kind-nodes...]
 ##     Install an ovl on kind-nodes.
@@ -281,6 +299,35 @@ cmd_kind_e2e() {
 }
 
 ##
+##   generator_cmd [--e2elog=] [cmd...]
+##     Called by Meridio e2e. Executes a command on vm-202
+cmd_generator_cmd() {
+	cmd_env
+	if test -n "$__e2elog"; then
+		echo "======= Generator cmd [$@]" >> $__e2elog
+		rsh 202 $@ | tee -a $__e2elog
+	else
+		rsh 202 $@
+	fi
+}
+##   e2e_script [--e2elog=] <init|end|configuration_new_ip|configuration_new_ip_revert>
+##     Called by Meridio e2e. Makes local (re)configurations
+cmd_e2e_script() {
+	test -n "$1" || die "No command"
+	test -n "$__e2elog" && echo "===== e2e_script [$1]" >> $__e2elog
+	case $1 in
+		init|configuration_new_ip_revert)
+			kubectl patch configmap meridio-configuration-trench-a -n red \
+				--patch-file $dir/kind/data/default.yaml;;
+		end)
+		;;
+		configuration_new_ip)
+			kubectl patch configmap meridio-configuration-trench-a -n red \
+				--patch-file $dir/kind/data/new-ip.yaml;;
+		*)
+			die "Invalid command [$1]";;
+	esac
+}
 ##   bird_dir
 ##   bird_build
 ##     Build the Bird routing suite
@@ -551,14 +598,18 @@ test_start() {
 ##   test start_e2e
 ##     Start cluster with NSM and prepare for e2e or helm load
 test_start_e2e() {
+	test -n "$__trenches" || __trenches="a b"
 	export __e2e=yes
 	export xcluster_NSM_NAMESPACE=nsm
 	test_start
 	otc 202 "setup_vlan --tag=100 eth3"
 	otc 202 "setup_vlan --tag=200 eth3"
 	otc 202 e2e_vip_route
-	otc 1 "e2e_trench a"
-	otc 1 "e2e_target a"
+	local t
+	for t in $__trenches; do
+		otc 1 "e2e_trench $t"
+		otc 1 "e2e_target $t"
+	done
 }
 
 ##   test [--trenches=red,...] [--use-multus] [--bgp] trench (default)
@@ -773,23 +824,18 @@ test_multus() {
 	xcluster_stop
 }
 
-# obsolete;
-#   test meridio_e2e
-#     Test with meridio_e2e
-test_meridio_e2e() {
-	tlog "=== forwarder-test: Meridio e2e"
-	export __e2e=yes
-	test_start_e2e
-	otc 1 e2e_trenches
-	xcbr3_add_vlan 100
-	xcbr3_add_vlan 200
-	xcbr3_ping_lb 169.254.101.1
-	xcbr3_ping_lb 169.254.101.2
-	xcbr3_ping_lb 169.254.102.1
-	xcbr3_ping_lb 169.254.102.2
-	otc 1 e2e_targets
+##   test [--no-start] e2e
+##     Run the Meridio e2e suite
+test_e2e() {
+	tlog "=== Meridio e2e"
+	test -n "$__e2elog" && rm -f "$__e2elog"
+	test "$__no_start" != "yes" && test_start_e2e
 	otc 202 "mconnect_adr 20.0.0.1:4000"
 	otc 202 "mconnect_adr [2000::1]:4000"
+	$dir/kind/data/test.sh init
+	cd $MERIDIOD
+	make TRAFFIC_GENERATOR_CMD="$me generator_cmd" \
+		E2E_SCRIPT="$dir/kind/data/test.sh" e2e 1>&2 || tdie "make e2e"
 	xcluster_stop
 }
 xcbr3_add_vlan() {
