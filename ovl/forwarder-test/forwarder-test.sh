@@ -149,9 +149,10 @@ cmd_kind_start() {
 	mkdir -p $tmp
 	local kint=$tmp/kubeconfig
 	kind get kubeconfig --name $KIND_CLUSTER_NAME --internal > $kint
-	for w in worker worker2; do
-		cat $kint | docker exec -i $KIND_CLUSTER_NAME-$w tee $k > /dev/null
-		echo "export KUBECONFIG=$k" | docker exec -i $KIND_CLUSTER_NAME-$w \
+	for w in $(kind --name=$KIND_CLUSTER_NAME get nodes); do
+		echo $w | grep -q control-plane && continue
+		cat $kint | docker exec -i $w tee $k > /dev/null
+		echo "export KUBECONFIG=$k" | docker exec -i $w \
 			tee -a /etc/profile.d/01-locale-fix.sh > /dev/null
 	done
 
@@ -159,6 +160,12 @@ cmd_kind_start() {
 		log "Installing Multus"
 		local d=$($XCLUSTER ovld multus)/default/etc/kubernetes/multus
 		kubectl apply -f $d/multus-install.yaml
+		# prepare for "node-annotation" ipam
+		for w in $(kind --name=$KIND_CLUSTER_NAME get nodes); do
+			echo $w | grep -q control-plane && continue
+			echo "{ \"kubeconfig\": \"$k\" }" | docker exec -i $w \
+				tee /etc/cni/node-annotation.conf > /dev/null
+		done
 	fi
 }
 ##   kind_stop
@@ -174,6 +181,37 @@ cmd_kind_sh() {
 	local node=control-plane
 	test -n "$1" && node=$1
 	xterm -bg "#040" -fg wheat -T $node -e docker exec -it $KIND_CLUSTER_NAME-$node bash -l &
+}
+##   kind_annotate
+##     Annotate nodes with address ranges for IPAM "node-annotation".
+##     Install a multus bridge NAD using the above.
+cmd_kind_annotate() {
+	cmd_env
+	kubectl annotate node $KIND_CLUSTER_NAME-worker meridio/bridge="\"ranges\": [
+  [{ \"subnet\":\"4000::16.0.0.0/120\", \"rangeStart\":\"4000::16.0.0.0\" , \"rangeEnd\":\"4000::16.0.0.7\"}],
+  [{ \"subnet\":\"16.0.0.0/24\", \"rangeStart\":\"16.0.0.0\" , \"rangeEnd\":\"16.0.0.7\"}]
+]"
+	kubectl annotate node $KIND_CLUSTER_NAME-worker2 meridio/bridge="\"ranges\": [
+  [{ \"subnet\":\"4000::16.0.0.0/120\", \"rangeStart\":\"4000::16.0.0.8\" , \"rangeEnd\":\"4000::16.0.0.15\"}],
+  [{ \"subnet\":\"16.0.0.0/24\", \"rangeStart\":\"16.0.0.8\" , \"rangeEnd\":\"16.0.0.15\"}]
+]"
+	cat | kubectl apply -f - <<EOF
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: meridio-bridge
+spec:
+  config: '{
+    "cniVersion": "0.4.0",
+    "type": "bridge",
+    "bridge": "cbr2",
+    "isGateway": true,
+    "ipam": {
+      "type": "node-annotation",
+      "annotation": "meridio/bridge"
+    }
+  }'
+EOF
 }
 ##   kind_ovl <ovl> [kind-nodes...]
 ##     Install an ovl on kind-nodes.
@@ -248,13 +286,23 @@ cmd_kind_check_nsm() {
 KIND_TRENCHES="trench-a trench-b"
 KIND_TARGETS="target-a target-b"
 cmd_kind_start_e2e() {
-	cmd_kind_start_nsm
+	cmd_env
+	local helmdir=$MERIDIOD/deployments/helm
+	if test "$__multus" = "yes"; then
+		helmdir=$MERIDIOD/deployments/helm-multus
+		__multus=no  # We want to use the Meridio script for this
+		cmd_kind_start_nsm
+		export KIND_CLUSTER_NAME
+		$MERIDIOD/test/e2e/meridio-e2e.sh multus_prepare
+	else
+		cmd_kind_start_nsm
+	fi
 	local t vlanid=100 ns=red
 	kubectl="kubectl -n $ns"
 
 	for t in $KIND_TRENCHES; do
 		cmd_kind_start_gw $t > /dev/null
-		helm_install $MERIDIOD/deployments/helm/ --generate-name \
+		helm_install $helmdir --generate-name \
 			--create-namespace --namespace $ns --set trench.name=$t \
 			--set vlan.id=$vlanid --set ipFamily=dualstack
 		vlanid=$((vlanid + 100))
