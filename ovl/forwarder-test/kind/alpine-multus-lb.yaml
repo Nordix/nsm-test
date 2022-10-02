@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alpine-deployment
+spec:
+  selector:
+    matchLabels:
+      app: alpine
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: alpine
+      annotations:
+        k8s.v1.cni.cncf.io/networks: '[
+            { "name": "meridio-100",
+              "namespace": "default",
+              "interface": "ext-vlan.100" }
+        ]'
+    spec:
+      containers:
+      - name: alpine
+        image: docker.io/library/alpine:latest
+        imagePullPolicy: IfNotPresent
+        command: ["tail", "-f", "/dev/null"]

@@ -98,12 +98,13 @@ cmd_generate_e2e() {
 	test -n "$__dest" || die "No dest"
 	test -d "$__dest" || die "Not a directory [$__dest]"
 	cmd_env
-
-	helm template $MERIDIOD/deployments/helm/ -f $dir/helm/values-a.yaml \
+	local helmdir=$MERIDIOD/deployments/helm
+	test "$__use_multus" = "yes" && helmdir=$MERIDIOD/deployments/helm-multus
+	helm template $helmdir -f $dir/helm/values-a.yaml \
 		--generate-name --create-namespace --namespace red \
 		--set ipFamily=dualstack > $__dest/trench-a.yaml 2> /dev/null
 
-	helm template $MERIDIOD/deployments/helm/ -f $dir/helm/values-b.yaml \
+	helm template $helmdir -f $dir/helm/values-b.yaml \
 		--generate-name --create-namespace --namespace blue \
 		--set ipFamily=dualstack > $__dest/trench-b.yaml 2> /dev/null
 
@@ -137,7 +138,7 @@ cmd_kind_start() {
 	log "Start KinD cluster [$KIND_CLUSTER_NAME] ..."
 	kind create cluster --name $KIND_CLUSTER_NAME --config $__kind_config \
 		$KIND_CREATE_ARGS || die
-	if test -x /usr/bin/busyboxX; then
+	if test -x /usr/bin/busybox; then
 		log "Installing busybox on control-plane and worker..."
 		docker cp /usr/bin/busybox $KIND_CLUSTER_NAME-control-plane:/bin
 		docker cp /usr/bin/busybox $KIND_CLUSTER_NAME-worker:/bin
@@ -157,15 +158,22 @@ cmd_kind_start() {
 	done
 
 	if test "$__multus" = "yes"; then
-		log "Installing Multus"
-		local d=$($XCLUSTER ovld multus)/default/etc/kubernetes/multus
-		kubectl apply -f $d/multus-install.yaml
-		# prepare for "node-annotation" ipam
-		for w in $(kind --name=$KIND_CLUSTER_NAME get nodes); do
-			echo $w | grep -q control-plane && continue
-			echo "{ \"kubeconfig\": \"$k\" }" | docker exec -i $w \
-				tee /etc/cni/node-annotation.conf > /dev/null
-		done
+		local prep=$MERIDIOD/test/e2e/meridio-e2e.sh
+		if test -x $prep; then
+			log "Multus e2e multus_prepare"
+			export KIND_CLUSTER_NAME
+			$prep multus_prepare
+		else
+			log "Installing Multus"
+			local d=$($XCLUSTER ovld multus)/default/etc/kubernetes/multus
+			kubectl apply -f $d/multus-install.yaml
+			# prepare for "node-annotation" ipam
+			for w in $(kind --name=$KIND_CLUSTER_NAME get nodes); do
+				echo $w | grep -q control-plane && continue
+				echo "{ \"kubeconfig\": \"$k\" }" | docker exec -i $w \
+					tee /etc/cni/node-annotation.conf > /dev/null
+			done
+		fi
 	fi
 }
 ##   kind_stop
@@ -180,11 +188,15 @@ cmd_kind_sh() {
 	cmd_env
 	local node=control-plane
 	test -n "$1" && node=$1
+	if echo $node | grep -q '^trench'; then
+		xterm -bg "#400" -fg wheat -T $node -e docker exec -it $node sh &
+		return 0
+	fi
 	xterm -bg "#040" -fg wheat -T $node -e docker exec -it $KIND_CLUSTER_NAME-$node bash -l &
 }
 ##   kind_annotate
 ##     Annotate nodes with address ranges for IPAM "node-annotation".
-##     Install a multus bridge NAD using the above.
+##     Install a multus NAD "meridio-100" using the above.
 cmd_kind_annotate() {
 	cmd_env
 	kubectl annotate node $KIND_CLUSTER_NAME-worker meridio/bridge="\"ranges\": [
@@ -199,13 +211,12 @@ cmd_kind_annotate() {
 apiVersion: "k8s.cni.cncf.io/v1"
 kind: NetworkAttachmentDefinition
 metadata:
-  name: meridio-bridge
+  name: meridio-100
 spec:
   config: '{
     "cniVersion": "0.4.0",
     "type": "bridge",
     "bridge": "cbr2",
-    "isGateway": true,
     "ipam": {
       "type": "node-annotation",
       "annotation": "meridio/bridge"
@@ -287,16 +298,11 @@ KIND_TRENCHES="trench-a trench-b"
 KIND_TARGETS="target-a target-b"
 cmd_kind_start_e2e() {
 	cmd_env
+	cmd_kind_stop_e2e > /dev/null 2>&1
 	local helmdir=$MERIDIOD/deployments/helm
-	if test "$__multus" = "yes"; then
-		helmdir=$MERIDIOD/deployments/helm-multus
-		__multus=no  # We want to use the Meridio script for this
-		cmd_kind_start_nsm
-		export KIND_CLUSTER_NAME
-		$MERIDIOD/test/e2e/meridio-e2e.sh multus_prepare
-	else
-		cmd_kind_start_nsm
-	fi
+	test "$__multus" = "yes" && helmdir=$MERIDIOD/deployments/helm-multus
+	cmd_kind_start_nsm
+
 	local t vlanid=100 ns=red
 	kubectl="kubectl -n $ns"
 
@@ -311,7 +317,7 @@ cmd_kind_start_e2e() {
 		test_statefulset ipam-$t 120 > /dev/null
 		test_statefulset nsp-$t 120 > /dev/null
 		test_deployment load-balancer-$t 120 > /dev/null
-		test_deployment nse-vlan-$t 120 > /dev/null
+		test "$__multus" != "yes" && test_deployment nse-vlan-$t 120 > /dev/null
 		test_daemonset proxy-$t 120 > /dev/null
 	done
 
@@ -615,6 +621,7 @@ test_start_empty() {
 ##     Start the cluster with NSM. Default; xcluster_NSM_FORWARDER=vpp
 test_start() {
 	tcase "Start with NSM, forwarder=$xcluster_NSM_FORWARDER"
+	test "$__use_multus" = "yes" && export __use_multus
 	if test -n "$__bgp"; then
 		test "$__bgp" = "yes" && __bgp=bgp
 		test -n "$xcluster_TRENCH_TEMPLATE" || xcluster_TRENCH_TEMPLATE="$__bgp"
@@ -650,12 +657,15 @@ test_start_e2e() {
 	export __e2e=yes
 	export xcluster_NSM_NAMESPACE=nsm
 	test_start
+	if test "$__use_multus" = "yes"; then
+		kubectl apply -f $dir/default/etc/kubernetes/multus/crd-meridio.yaml
+	fi
 	otc 202 "setup_vlan --tag=100 eth3"
 	otc 202 "setup_vlan --tag=200 eth3"
 	otc 202 e2e_vip_route
 	local t
 	for t in $__trenches; do
-		otc 1 "e2e_trench $t"
+		otc 1 "e2e_trench --use-multus=$__use_multus $t"
 		otc 1 "e2e_target $t"
 	done
 }
@@ -666,7 +676,6 @@ test_start_e2e() {
 ##     "--reconnect-delay=sec" is specified the Re-test connectivity
 ##     is delayed.
 test_trench() {
-	test "$__use_multus" = "yes" && export __use_multus
 	test -n "$__trenches" || __trenches=red,blue,green
 	tlog "=== forwarder-test: Test trenches [$__trenches]"
 	test_start
