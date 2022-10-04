@@ -203,9 +203,6 @@ cmd_test() {
 }
 
 test_start_empty() {
-	test -n "$__mode" || __mode=dual-stack
-	export xcluster___mode=$__mode
-	xcluster_prep $__mode
 	export TOPOLOGY=multilan-router
 	. $($XCLUSTER ovld network-topology)/$TOPOLOGY/Envsettings
 	if test "$xcluster_FIRST_WORKER" = "1"; then

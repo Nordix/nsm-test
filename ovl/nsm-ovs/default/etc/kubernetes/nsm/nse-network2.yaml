@@ -33,7 +33,7 @@ spec:
           value: "True"
         - name: NSM_LISTEN_ON
           value: tcp://:5003
-        image: ghcr.io/networkservicemesh/cmd-nse-remote-vlan:v1.5.0
+        image: ghcr.io/networkservicemesh/cmd-nse-remote-vlan:v1.6.0
         imagePullPolicy: IfNotPresent
         name: nse
         ports:
