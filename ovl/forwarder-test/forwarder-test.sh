@@ -709,8 +709,8 @@ cmd_add_trench() {
 cmd_add_multus_trench() {
 	cmd_env
 	case $1 in
-		red)
-			otcw "local_vlan --tag=100 eth2"
+		red|pink)
+			otcw "local_vlan --bridge=br1 --tag=100 eth2"
 			otc 202 "setup_vlan --tag=100 eth3";;
 		blue)
 			otcw "local_vlan --tag=200 eth2"
@@ -760,6 +760,12 @@ mconnect_trench() {
 			otc 202 "mconnect_adr [1000::1:10.0.0.3]:$__port"
 			otc 202 "mconnect_adr 10.0.0.48:$__port"
 			otc 202 "mconnect_adr [1000::1:10.0.0.48]:$__port"
+		;;
+		pink)
+			otc 202 "mconnect_adr 10.0.0.4:$__port"
+			otc 202 "mconnect_adr [1000::1:10.0.0.4]:$__port"
+			otc 202 "mconnect_adr 10.0.0.64:$__port"
+			otc 202 "mconnect_adr [1000::1:10.0.0.64]:$__port"
 		;;
 	esac
 }
