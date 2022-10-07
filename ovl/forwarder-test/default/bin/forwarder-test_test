@@ -198,7 +198,7 @@ cmd_tcase_local_vlan() {
 		if ip link show dev $__bridge > /dev/null 2>&1; then
 			log "Attach dev $iface.$__tag to existing bridge $bridge"
 		else
-			log "Create bridge $bridge and attach $iface.$__tag"
+			log "Create bridge $__bridge and attach $iface.$__tag"
 			ip link add name $__bridge type bridge
 			echo 0 > /proc/sys/net/ipv6/conf/$__bridge/accept_dad
 			echo 0 > /proc/sys/net/ipv4/conf/$__bridge/rp_filter

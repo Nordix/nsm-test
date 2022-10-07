@@ -710,7 +710,7 @@ cmd_add_multus_trench() {
 	cmd_env
 	case $1 in
 		red|pink)
-			otcw "local_vlan --bridge=br1 --tag=100 eth2"
+			otcw "local_vlan --bridge=mbr1 --tag=100 eth2"
 			otc 202 "setup_vlan --tag=100 eth3";;
 		blue)
 			otcw "local_vlan --tag=200 eth2"
