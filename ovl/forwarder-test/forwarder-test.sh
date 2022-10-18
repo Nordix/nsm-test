@@ -499,8 +499,12 @@ cmd_build_base_image() {
 	cmd_env
 	local base=$(grep base_image= $dir/images/Dockerfile.default | cut -d= -f2)
 	log "Building base image [$base]"
+	local health_probe=$ARCHIVE/grpc_health_probe-linux-amd64
+	test -r $health_probe || die "Not readable [$health_probe]"
 	local dockerfile=$dir/images/Dockerfile.base
-	mkdir -p $tmp
+	mkdir -p $tmp/bin
+	cp $health_probe $tmp/bin/grpc_health_probe
+	chmod a+x $tmp/bin/grpc_health_probe
 	docker build -t $base -f $dockerfile $tmp || die "docker build $base"
 }
 ##   build_images
