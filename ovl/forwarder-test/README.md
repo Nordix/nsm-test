@@ -54,7 +54,10 @@ Build Meridio;
 eval $(./forwarder-test.sh env | grep MERIDIOD)
 private_reg=$(./forwarder-test.sh private_reg --localhost)
 cd $MERIDIOD
-make REGISTRY=$private_reg/cloud-native/meridio
+#make REGISTRY=$private_reg/cloud-native/meridio IMAGES=base-image
+#make REGISTRY=$private_reg/cloud-native/meridio IMAGES=example-target
+make REGISTRY=$private_reg/cloud-native/meridio \
+  IMAGES="stateless-lb proxy tapa ipam nsp frontend"
 ```
 Note the added "cloud-native/" compared to the default registry.
 

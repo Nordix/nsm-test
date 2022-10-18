@@ -108,11 +108,11 @@ cmd_generate_e2e() {
 		--generate-name --create-namespace --namespace blue \
 		--set ipFamily=dualstack > $__dest/trench-b.yaml 2> /dev/null
 
-	helm template $MERIDIOD/examples/target/helm/ --generate-name \
+	helm template $MERIDIOD/examples/target/deployments/helm/ --generate-name \
 		--create-namespace --namespace red --set applicationName=target-a \
 		--set default.trench.name=trench-a > $__dest/target-a.yaml 2> /dev/null
 
-	helm template $MERIDIOD/examples/target/helm/ --generate-name \
+	helm template $MERIDIOD/examples/target/deployments/helm/ --generate-name \
 		--create-namespace --namespace blue --set applicationName=target-b \
 		--set default.trench.name=trench-b > $__dest/target-b.yaml 2> /dev/null
 }
@@ -323,7 +323,7 @@ cmd_kind_start_e2e() {
 
 	for t in $KIND_TARGETS; do
 		local tn=$(echo $t | sed -e 's,target,trench,')
-		helm_install meridio-$t $MERIDIOD/examples/target/helm/ \
+		helm_install meridio-$t $MERIDIOD/examples/target/deployments/helm/ \
 			--create-namespace --namespace $ns --set applicationName=$t \
 			--set default.trench.name=$tn
 	done
@@ -516,7 +516,7 @@ cmd_build_images() {
 
 	test -n "$__registry" || __registry=registry.nordix.org/cloud-native/meridio
 	test -n "$__version" || __version=local
-	test -n "$__nfqlb" || __nfqlb=1.1.0
+	test -n "$__nfqlb" || __nfqlb=1.1.3
 
 	for n in frontend ipam stateless-lb nsp proxy tapa; do
 		x=$__out/$n
