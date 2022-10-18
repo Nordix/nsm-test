@@ -456,7 +456,7 @@ cmd_lreg_cache() {
 cmd_build_binaries() {
 	cmd_env
 	mkdir -p $__out
-	__targets="load-balancer proxy tapa ipam nsp frontend"
+	__targets="stateless-lb proxy tapa ipam nsp frontend"
 
 	cd $MERIDIOD
 	local gitver=$(git describe --dirty --tags)
@@ -469,8 +469,8 @@ cmd_build_binaries() {
 		else
 			cmds="$cmds $MERIDIOD/cmd/$n"
 		fi
-		cmds="$cmds $MERIDIOD/test/applications/target-client"
 	done
+	#cmds="$cmds $MERIDIOD/examples/target/..."
 	if test -n "$cmds"; then
 		CGO_ENABLED=0 GOOS=linux go build -o $__out \
 			-ldflags "-extldflags -static -X main.version=$gitver" $cmds \
@@ -485,6 +485,11 @@ cmd_build_binaries() {
 			die "go build $cgo"
 		fi
 	fi
+	cd $MERIDIOD/examples/target
+	CGO_ENABLED=0 GOOS=linux go build -o $__out \
+		-ldflags "-extldflags -static -X main.version=$gitver" \
+		./... || die "go build $cmds"
+
 	strip $__out/*
 }
 
@@ -509,12 +514,12 @@ cmd_build_images() {
 	test -n "$__version" || __version=local
 	test -n "$__nfqlb" || __nfqlb=1.1.0
 
-	for n in frontend ipam load-balancer nsp proxy tapa; do
+	for n in frontend ipam stateless-lb nsp proxy tapa; do
 		x=$__out/$n
 		test -x $x || die "Not built [$x]"
 		rm -rf $tmp; mkdir -p $tmp/root
 		cp $x $tmp/root
-		if test "$n" = "load-balancer"; then
+		if test "$n" = "stateless-lb"; then
 			local ar=$HOME/Downloads/nfqlb-$__nfqlb.tar.xz
 			if ! test -r $ar; then
 				local url=https://github.com/Nordix/nfqueue-loadbalancer/releases/download
@@ -531,7 +536,7 @@ cmd_build_images() {
 			|| die "docker build $n"
 	done
 
-	for n in frontend ipam load-balancer nsp proxy tapa; do
+	for n in frontend ipam stateless-lb nsp proxy tapa; do
 		$images lreg_upload --strip-host $__registry/$n:$__version
 	done
 }
