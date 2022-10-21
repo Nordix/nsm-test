@@ -177,7 +177,30 @@ cmd_tcase_setup_vlan() {
     ip addr add $ipv4/24 dev $iface.$__tag || tdie "ip addr"
     ip -6 addr add $ipv6prefix:$ipv4/120 dev $iface.$__tag || tdie "ip -6 addr"
 }
-
+##   setup_vlan64 - Setup vlan with a /64 IPv6 address
+cmd_tcase_setup_vlan64() {
+	test -n "$__tag" || __tag=100
+	tcase "Setup vlan with IPv6 address on $__prefix:/64 [$1.$__tag]"
+	test -n "$1" || die "No interface"
+	test -n "$__prefix" || die "No prefix"
+	local iface=$1
+    echo 0 > /proc/sys/net/ipv6/conf/$iface/accept_dad
+    ip link set up $iface
+    ethtool -K $iface tx off
+    ip link add link $iface name $iface.$__tag type vlan id $__tag
+    echo 0 > /proc/sys/net/ipv6/conf/$iface.$__tag/accept_dad
+    ip link set up dev $iface.$__tag
+	local ipv4
+	case $iface.$__tag in
+		eth3.100) ipv4=169.254.101.254;;
+		eth3.200) ipv4=169.254.102.254;;
+		eth4.100) ipv4=169.254.103.254;;
+		*) die "Invalid interface [$iface.$__tag]";;
+	esac
+	#log "Address; $ipv4"
+    ip addr add $ipv4/24 dev $iface.$__tag || tdie "ip addr"
+	ip -6 addr add $__prefix:$ipv4/64 dev $iface.$__tag
+}
 cmd_tcase_local_vlan() {
 	test -n "$1" || die "No interface"
 	local iface=$1
@@ -196,9 +219,9 @@ cmd_tcase_local_vlan() {
 
 	if test -n "$__bridge"; then
 		if ip link show dev $__bridge > /dev/null 2>&1; then
-			log "Attach dev $iface.$__tag to existing bridge $bridge"
+			tlog "Attach dev $iface.$__tag to existing bridge $bridge"
 		else
-			log "Create bridge $__bridge and attach $iface.$__tag"
+			tlog "Create bridge $__bridge and attach $iface.$__tag"
 			ip link add name $__bridge type bridge
 			echo 0 > /proc/sys/net/ipv6/conf/$__bridge/accept_dad
 			echo 0 > /proc/sys/net/ipv4/conf/$__bridge/rp_filter
@@ -252,7 +275,11 @@ cmd_tcase_collect_lb_addresses() {
 	done
 	cat $out-raw
 	grep -o -E 'inet 169[0-9\.]+' $out-raw | cut -d' ' -f2 >> $out-ip4
-	grep -o -E "inet6 $ipv6prefix:[0-9a-f:]+" $out-raw | cut -d' ' -f2 >> $out-ip6
+	if test -n "$__prefix"; then
+		grep -o -E "inet6 $__prefix:[0-9a-f:]+" $out-raw | cut -d' ' -f2 >> $out-ip6
+	else
+		grep -o -E "inet6 $ipv6prefix:[0-9a-f:]+" $out-raw | cut -d' ' -f2 >> $out-ip6
+	fi
 	cat $out-ip4 $out-ip6 1>&2
 }
 
@@ -268,7 +295,7 @@ cmd_tcase_trench_vip_route() {
 	local out=/tmp/meridio-load-balancer-$ns
 	local vips
 	case $ns in
-		red)   vips="10.0.0.1/32 10.0.0.16/28";;
+		red|black) vips="10.0.0.1/32 10.0.0.16/28";;
 		blue)  vips="10.0.0.2/32 10.0.0.32/28";;
 		green) vips="10.0.0.3/32 10.0.0.48/28";;
 		pink) vips="10.0.0.4/32 10.0.0.64/28";;
@@ -318,7 +345,7 @@ cmd_tcase_mconnect() {
 	local ns=$1
 	local vip4
 	case $ns in
-		red) vip4=10.0.0.1;;
+		red|black) vip4=10.0.0.1;;
 		blue) vip4=10.0.0.2;;
 		green) vip4=10.0.0.3;;
 		pink) vip4=10.0.0.4;;
@@ -576,12 +603,57 @@ cmd_tcase_e2e_target() {
 	$kubectl apply -f /etc/kubernetes/meridio-e2e/target-$t.yaml || tdie
 	test_deployment target-$t 120 || tdie
 }
+##   radvd_start - Start router advertisement daemon
+cmd_tcase_radvd_start() {
+	tcase "Start router advertisement daemon [$1]"
+	test -n "$1" || tdie "No interface"
+	test -n "$__prefix" || die "No prefix"
+	local cfg log
+	export IFACE=$1
+	export IPREFIX=$__prefix:/64
+	cfg=/etc/radvd/radvd.$IFACE.conf
+	log=/var/log/radvd.$IFACE
+	envsubst < /etc/radvd/radvd.conf > $cfg
+	radvd -n -d 5 -C $cfg -m stderr > $log 2>&1 &
+}
+##   dhcpd - Setup a ISC dhcp server
+cmd_tcase_dhcpd() {
+	tcase "Setup a ISC dhcp server [$1]"
+	test -n "$1" || tdie "No interface"
+	test "$(hostname)" = "vm-202" || die "Must run on vm-202"
+	local iface=$1
+	local cfg lf log
+	mkdir -p /var/db
+
+	local ipv4
+	case $iface in
+		eth3.100) ipv4=169.254.101;;
+		eth3.200) ipv4=169.254.102;;
+		eth4.100) ipv4=169.254.103;;
+		*) die "Invalid interface [$iface.$__tag]";;
+	esac
+	export RSTART=$ipv4.1
+	export REND=$ipv4.20
+	export SUBNET="$ipv4.0 netmask 255.255.255.0"
+	log=/var/log/dhcpd4.$iface
+	lf=/var/db/dhcpd4.$iface.leases
+	cfg=/etc/dhcp/dhcp4.$iface.conf
+	envsubst < /etc/dhcp/dhcp4.conf > $cfg
+	touch $lf
+	dhcpd -d -cf $cfg -lf $lf --no-pid $iface > $log 2>&1 &
+}
+##   cni_dhcp_start - Start dhcp CNI-plugin daemon
+cmd_tcase_cni_dhcp_start() {
+	tcase "Start dhcp CNI-plugin daemon"
+	/opt/cni/bin/dhcp daemon > /var/log/dhcp-daemon.log 2>&1 &
+	return 0
+}
 
 . /etc/profile
 . /usr/lib/xctest
 indent='  '
 
-
+##
 # Get the command
 cmd=$1
 shift

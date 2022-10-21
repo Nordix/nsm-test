@@ -658,6 +658,15 @@ test_start() {
 	test "$xcluster_NSM_FORWARDER" = "vpp" && otc 1 vpp_version
 	unset otcprog
 }
+##   test start_dhcp
+##     Start cluster with DHCP/SLAAC address allocation for FEs.
+##     Multus is enforced.
+test_start_dhcp() {
+	__use_multus=yes
+	unset __bgp
+	test_start dhcp
+	otcw cni_dhcp_start
+}
 
 ##   test start_e2e
 ##     Start cluster with NSM and prepare for e2e or helm load
@@ -686,7 +695,7 @@ test_start_e2e() {
 ##     is delayed.
 test_trench() {
 	test -n "$__trenches" || __trenches=red,blue,green
-	tlog "=== forwarder-test: Test trenches [$__trenches]"
+	tlog "=== Test trenches [$__trenches]"
 	test_start
 	local trench
 	test -n "$__bgp" && otc 202 "bird --conf=$__bird_conf"
@@ -727,6 +736,11 @@ cmd_add_multus_trench() {
 		green)
 			otcw "local_vlan --tag=100 eth3"
 			otc 202 "setup_vlan --tag=100 eth4";;
+		black)
+			otc 202 "setup_vlan64 --tag=100 --prefix=fd00:100: eth3"
+			otc 202 "radvd_start --prefix=fd00:100: eth3.100"
+			otc 202 "dhcpd eth3.100"
+			otcw "local_vlan --bridge=mbr1 --tag=100 eth2";;
 		*) tdie "Invalid trench [$1]";;
 	esac
 	otc 1 "trench --use-multus $1"
@@ -739,7 +753,7 @@ trench_test() {
 		cmd_add_trench $1
 	fi
 	if test -z "$__bgp"; then
-		otc 202 "collect_lb_addresses $1"
+		otc 202 "collect_lb_addresses --prefix=$__prefix $1"
 		otc 202 "trench_vip_route $1"
 	fi
 	otc 2 "collect_target_addresses $1"
@@ -752,7 +766,7 @@ trench_test() {
 mconnect_trench() {
 	test -n "$__port" || __port=5001
 	case $1 in
-		red)
+		red|black)
 			otc 202 "mconnect_adr 10.0.0.1:$__port"
 			otc 202 "mconnect_adr [1000::1:10.0.0.1]:$__port"
 			otc 202 "mconnect_adr 10.0.0.16:$__port"
@@ -927,6 +941,16 @@ xcbr3_ping_lb() {
 	ping -c1 -W1 $adr 2>&1 || tdie
 	tex ping -c1 -W1 1000::1:$adr 2>&1
 }
+##   test dhcp
+##     Test with addresses via DHCP/SLAAC to FEs (multus enforced)
+test_dhcp() {
+	tlog "Test with addresses via DHCP/SLAAC to FEs (multus enforced)"
+	test_start_dhcp
+	__prefix=fd00:100:
+	trench_test black
+	xcluster_stop	
+}
+
 
 ##
 . $($XCLUSTER ovld test)/default/usr/lib/xctest
