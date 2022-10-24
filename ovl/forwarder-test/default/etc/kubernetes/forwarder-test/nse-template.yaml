@@ -30,8 +30,6 @@ spec:
               value: "$NSM_SERVICES"
             - name: NSM_CIDR_PREFIX
               value: "$NSM_CIDR_PREFIX"
-            - name: NSM_IPV6_PREFIX
-              value: "$NSM_IPV6_PREFIX"
             - name: NSM_POINT2POINT
               value: "True"
             - name: NSM_REGISTER_SERVICE
