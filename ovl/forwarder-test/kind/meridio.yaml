@@ -11,6 +11,9 @@ nodes:
       nodeRegistration:
         kubeletExtraArgs:
           seccomp-default: "true"
+  extraMounts:
+  - hostPath: "./kind/data"
+    containerPath: "/var/lib/kubelet/seccomp/profiles"
 - role: worker
   kubeadmConfigPatches:
     - |
@@ -18,6 +21,9 @@ nodes:
       nodeRegistration:
         kubeletExtraArgs:
           seccomp-default: "true"
+  extraMounts:
+  - hostPath: "./kind/data"
+    containerPath: "/var/lib/kubelet/seccomp/profiles"
 containerdConfigPatches:
 - |-
     [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
