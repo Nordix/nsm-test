@@ -14,6 +14,7 @@ data:
     items:
     - name: $STREAM1
       conduit: $CONDUIT1
+      max-targets: 20
   flows: |
     items:
     - name: port-nat
