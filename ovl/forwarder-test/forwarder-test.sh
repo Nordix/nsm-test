@@ -116,7 +116,19 @@ cmd_generate_e2e() {
 		--create-namespace --namespace blue --set applicationName=target-b \
 		--set default.trench.name=trench-b > $__dest/target-b.yaml 2> /dev/null
 }
-
+##   helm_template [--dest=...yaml] [--values=] <dir>
+##     Generate manifests from a helm template
+cmd_helm_template() {
+	test -n "$1" || die "No dir"
+	test -d "$1" || die "Not a directory [$1]"
+	test -n "$__values" || __values=$1/values.yaml
+	test -r "$__values" || die "Not readable [$__values]"
+	test -n "$__dest" || __dest=/tmp/$USER/helm-manifest.yaml
+	if ! test -d "$(dirname $__dest)"; then
+		mkdir -p "$(dirname $__dest)" || die "mkdir $(dirname $__dest)"
+	fi
+	helm template $1 -f $__values > $__dest
+}
 ##   kind_start [--kind-config=]
 ##     Start a Kubernetes-in-Docker (KinD) cluster for Meridio tests.
 ##     NOTE: Images are loaded from the private registry!
@@ -271,13 +283,15 @@ helm_install() {
 	fi
 	return 0
 }
-##   kind_start_nsm [--no-kind-start]
+##   kind_start_nsm [--no-kind-start] [--no-spire]
 ##     Start a KinD cluster with spire and NSM
 cmd_kind_start_nsm() {
 	cmd_env
 	test "$__no_kind_start" = "yes" || cmd_kind_start
-	kubectl apply -k $MERIDIOD/docs/demo/deployments/spire > /dev/null 2>&1 \
-		|| die "kubectl apply -k $MERIDIOD/docs/demo/deployments/spire"
+	if test "$__no_spire" != "yes"; then
+		kubectl apply -k $MERIDIOD/docs/demo/deployments/spire > /dev/null 2>&1 \
+			|| die "kubectl apply -k $MERIDIOD/docs/demo/deployments/spire"
+	fi
 	helm_install $MERIDIOD/docs/demo/deployments/nsm --generate-name \
 		--create-namespace --namespace nsm
 	cmd_kind_check_nsm > /dev/null
@@ -485,11 +499,12 @@ cmd_build_binaries() {
 			die "go build $cgo"
 		fi
 	fi
-	cd $MERIDIOD/examples/target
-	CGO_ENABLED=0 GOOS=linux go build -o $__out \
-		-ldflags "-extldflags -static -X main.version=$gitver" \
-		./... || die "go build $cmds"
-
+	if test "$__no_target" != "yes"; then
+		cd $MERIDIOD/examples/target
+		CGO_ENABLED=0 GOOS=linux go build -o $__out \
+			-ldflags "-extldflags -static -X main.version=$gitver" \
+			./... || die "go build examples/target"
+	fi
 	strip $__out/*
 }
 
@@ -561,6 +576,8 @@ cmd_build_gwimage() {
 	test -x $NFQLB_DIR/bin/ipu || die "Not executable [$NFQLB_DIR/bin/ipu]"
 	test -n "$__registry" || __registry=registry.nordix.org/cloud-native/meridio
 	test -n "$__version" || __version=local
+	local images=$($XCLUSTER ovld images)/images.sh
+	test -x $images || dir "Can't find ovl/images/images.sh"
 
 	rm -rf $tmp; mkdir -p $tmp/root $tmp/usr/bin
 	cp $dir/images/gw/meridiogw.sh $tmp/root
@@ -574,7 +591,7 @@ cmd_build_gwimage() {
 	sed -e "s,/start-command,/meridiogw.sh," < $dockerfile > $tmp/Dockerfile
 	docker build -t $__registry/meridiogw:$__version $tmp \
 		|| die "docker build meridiogw"
-	
+	$images lreg_upload --strip-host $__registry/meridiogw:$__version
 }
 
 
@@ -715,43 +732,31 @@ test_trench() {
 
 cmd_add_trench() {
 	test -n "$1" || die 'No trench'
-	case $1 in
-		red) otc 202 "setup_vlan --tag=100 eth3";;
-		blue) otc 202 "setup_vlan --tag=200 eth3";;
-		green) otc 202 "setup_vlan --tag=100 eth4";;
-		*) tdie "Invalid trench [$1]";;
-	esac
-	otc 1 "trench $1"
-}
-
-cmd_add_multus_trench() {
 	cmd_env
-	case $1 in
-		red|pink)
-			otcw "local_vlan --bridge=mbr1 --tag=100 eth2"
-			otc 202 "setup_vlan --tag=100 eth3";;
-		blue)
-			otcw "local_vlan --tag=200 eth2"
-			otc 202 "setup_vlan --tag=200 eth3";;
-		green)
-			otcw "local_vlan --tag=100 eth3"
-			otc 202 "setup_vlan --tag=100 eth4";;
-		black)
-			otc 202 "setup_vlan64 --tag=100 --prefix=fd00:100: eth3"
-			otc 202 "radvd_start --prefix=fd00:100: eth3.100"
-			otc 202 "dhcpd eth3.100"
-			otcw "local_vlan --bridge=mbr1 --tag=100 eth2";;
-		*) tdie "Invalid trench [$1]";;
-	esac
-	otc 1 "trench --use-multus $1"
+	if test "$__use_multus" = "yes"; then
+		case $1 in
+			red|pink)
+				otcw "local_vlan --bridge=mbr1 --tag=100 eth2";;
+			blue)
+				otcw "local_vlan --tag=200 eth2";;
+			green)
+				otcw "local_vlan --tag=100 eth3";;
+			black)
+				otc 202 "setup_vlan64 --tag=100 --prefix=fd00:100: eth3"
+				otc 202 "radvd_start --prefix=fd00:100: eth3.100"
+				otc 202 "dhcpd eth3.100"
+				otcw "local_vlan --bridge=mbr1 --tag=100 eth2"
+				otc 1 "trench --use-multus $1"
+				return;;
+			*) tdie "Invalid trench [$1]";;
+		esac
+	fi
+	otc 202 "setup_vlan $1"
+	otc 1 "trench --use-multus=$__use_multus $1"
 }
 
 trench_test() {
-	if test "$__use_multus" = "yes"; then
-		cmd_add_multus_trench $1
-	else
-		cmd_add_trench $1
-	fi
+	cmd_add_trench $1
 	if test -z "$__bgp"; then
 		otc 202 "collect_lb_addresses --prefix=$__prefix $1"
 		otc 202 "trench_vip_route $1"
@@ -858,55 +863,6 @@ test_port_nat_vip() {
 	otc 202 "mconnect_adr 10.0.0.1:7777"
 	otc 202 "mconnect_adr [1000::1:10.0.0.1]:7777"
 	otc 1 "check_flow_vips --cnt=2 $trench"
-	xcluster_stop
-}
-
-
-##   test [--nsm-local] nsm
-##     Test without meridio but with NSM in a "meridio alike" way,
-##     i.e. NSE and NSC in separate K8s namespaces.
-test_nsm() {
-	tlog "=== forwarder-test: NSM without Meridio"
-	test "$__nsm_local" = "yes" && export nsm_local=yes
-	test_start
-	otc 1 "nsm red"
-	otc 1 "nsm blue"
-	otc 1 "nsm green"
-	otc 202 "setup_vlan --tag=100 eth3"
-	otc 202 "setup_vlan --tag=200 eth3"
-	otc 202 "setup_vlan --tag=100 eth4"
-	local ns
-	if test $xcluster_FIRST_WORKER -gt 1 ; then
-		# Some CNI-plugins takes a lot of juice :-(
-		tcase "Sleep 5 sec ..."
-		sleep 5
-	fi
-	for ns in red blue green; do
-		otc 202 "collect_nsc_addresses $ns"
-		otc 202 "ping_nsc_addresses $ns"
-	done
-	xcluster_stop
-}
-
-##   test multus
-##     Test Multus setup without NSM or Meridio
-test_multus() {
-	tlog "=== forwarder-test: Multus without NSM or Meridio"
-	export __use_multus=yes
-	test_start_empty
-	otc 1 multus_setup
-	otcw "local_vlan --tag=100 eth2"
-	otcw "local_vlan --tag=200 eth2"
-	otcw "local_vlan --tag=100 eth3"
-	otc 202 "setup_vlan --tag=100 eth3"
-	otc 202 "setup_vlan --tag=200 eth3"
-	otc 202 "setup_vlan --tag=100 eth4"
-	local ns
-	for ns in red blue green; do
-		otc 1 "multus $ns"
-		otc 202 "collect_alpine_addresses $ns"
-		otc 202 "ping_alpine_addresses $ns"
-	done
 	xcluster_stop
 }
 

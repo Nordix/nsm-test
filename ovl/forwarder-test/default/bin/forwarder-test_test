@@ -13,6 +13,7 @@ me=$dir/$prg
 tmp=/tmp/${prg}_$$
 test -n "$DOMAIN" || DOMAIN=xcluster
 yamld=/etc/kubernetes/forwarder-test
+test -n "$PREFIX" || PREFIX=1000::1
 ipv6prefix=1000::1
 
 die() {
@@ -150,32 +151,21 @@ cmd_tcase_ping_alpine_addresses() {
 		ping -c1 -W1 $ip || tdie "Ping $ip"
 	done
 }
-
 cmd_tcase_setup_vlan() {
-	local iface=eth3
-	test -n "$1" && iface=$1
-	test -n "$__tag" || __tag=100
-    tcase "Setup vlan on interface [$iface.$__tag]"
-    # Note that eth2 on the VMs is eth3 on router vm-202
-	ip link show $iface.$__tag 2>&1 && return 0
-	ip link show $iface 2>&1 || tdie "invalid iface $iface"
-
-    echo 0 > /proc/sys/net/ipv6/conf/$iface/accept_dad
-    ip link set up $iface
+	test -n "$__tag" && tdie "Obsolete setup"
+	tcase "Setup VLAN for trench [$1]"
+	configure_trench $1
+	local iface=eth$VLAN_NET
+	local dev=$iface.$VLAN_TAG
+	ip link show $dev 2>&1 && return 0
     ethtool -K $iface tx off
-    ip link add link $iface name $iface.$__tag type vlan id $__tag
-    echo 0 > /proc/sys/net/ipv6/conf/$iface.$__tag/accept_dad
-    ip link set up dev $iface.$__tag
-	local ipv4
-	case $iface.$__tag in
-		eth3.100) ipv4=169.254.101.254;;
-		eth3.200) ipv4=169.254.102.254;;
-		eth4.100) ipv4=169.254.103.254;;
-		*) die "Invalid interface [$iface.$__tag]";;
-	esac
-	#log "Address; $ipv4"
-    ip addr add $ipv4/24 dev $iface.$__tag || tdie "ip addr"
-    ip -6 addr add $ipv6prefix:$ipv4/120 dev $iface.$__tag || tdie "ip -6 addr"
+	ip link set up $iface
+	ip link add link $iface name $dev type vlan id $VLAN_TAG
+	echo 0 > /proc/sys/net/ipv6/conf/$dev/accept_dad
+	ip link set up dev $dev
+	# TODO; do not assume /24 /120 masks
+	ip addr add $GATEWAY4/24 dev $dev || tdie "ip addr"
+    ip -6 addr add $GATEWAY6/120 dev $dev || tdie "ip -6 addr"
 }
 ##   setup_vlan64 - Setup vlan with a /64 IPv6 address
 cmd_tcase_setup_vlan64() {
