@@ -62,6 +62,11 @@ if test "$__e2e" = "yes"; then
 	$dir/forwarder-test.sh generate_e2e --dest=$d 2> /dev/null || die
 fi
 
+test -n "$NFQLBD" || NFQLBD=$HOME/tmp/nfqlb
+f=$NFQLBD/bin/ipu
+test -x $f || die "Not executable [$f]"
+cp $f $tmp/bin
+
 cd $tmp
 tar cf "$1" *
 cd - > /dev/null
