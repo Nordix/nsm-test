@@ -31,18 +31,10 @@ spec:
                 - "meridio-load-balancer"
             topologyKey: kubernetes.io/hostname
       initContainers:
-        - name: sysctl-init
-          image: registry.nordix.org/cloud-native/meridio/busybox:1.29
+        - name: meridio-init
+          image: registry.nordix.org/cloud-native/meridio/init:local
           securityContext:
             privileged: true
-          volumeMounts:
-            - name: nsm-socket
-              mountPath: /var/lib/networkservicemesh
-              readOnly: false
-          command: ["/bin/sh"]
-          args:
-            - -c
-            - sysctl -w net.ipv4.conf.all.forwarding=1; sysctl -w net.ipv6.conf.all.forwarding=1; sysctl -w net.ipv4.fib_multipath_hash_policy=1
       containers:
         - name: load-balancer
           image: registry.nordix.org/cloud-native/meridio/stateless-lb:local

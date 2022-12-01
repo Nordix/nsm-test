@@ -593,7 +593,16 @@ cmd_build_gwimage() {
 		|| die "docker build meridiogw"
 	$images lreg_upload --strip-host $__registry/meridiogw:$__version
 }
-
+##   build_init_image
+##     Build the meridio init image
+cmd_build_init_image() {
+	cmd_env
+	test -n "$__version" || __version=local
+	$MERIDIOD/hack/build.sh init_image --version=$__version || die
+	local images=$($XCLUSTER ovld images)/images.sh
+	local img=registry.nordix.org/cloud-native/meridio/init
+	$images lreg_upload --strip-host $img:$__version
+}
 
 ##
 ##   test --list
