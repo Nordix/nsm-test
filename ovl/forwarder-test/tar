@@ -30,7 +30,7 @@ test -n "$MERIDIOVER" && \
 
 $XCLUSTER install_prog --dest=$tmp envsubst
 
-if test "$__use_multus" = "yes"; then
+if test "$__exconnect" = "multus"; then
 	ovl_multus=$($XCLUSTER ovld multus)
 	SETUP=None $ovl_multus/tar - | tar -C $tmp -x
 fi

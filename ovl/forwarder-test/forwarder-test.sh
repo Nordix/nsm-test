@@ -98,8 +98,8 @@ cmd_generate_e2e() {
 	test -n "$__dest" || die "No dest"
 	test -d "$__dest" || die "Not a directory [$__dest]"
 	cmd_env
-	local helmdir=$MERIDIOD/deployments/helm
-	test "$__use_multus" = "yes" && helmdir=$MERIDIOD/deployments/helm-multus
+	local helmdir=$MERIDIOD/deployments/helm-$__exconnect
+	test -d $helmdir || helmdir=$MERIDIOD/deployments/helm
 	helm template $helmdir -f $dir/helm/values-a.yaml \
 		--generate-name --create-namespace --namespace red \
 		--set ipFamily=dualstack > $__dest/trench-a.yaml 2> /dev/null
@@ -656,7 +656,8 @@ test_start_empty() {
 ##     Start the cluster with NSM. Default; xcluster_NSM_FORWARDER=vpp
 test_start() {
 	tcase "Start with NSM, forwarder=$xcluster_NSM_FORWARDER"
-	test "$__use_multus" = "yes" && export __use_multus
+	test "$__use_multus" = "yes" && __exconnect=multus  # Backward compatinility
+	test -n "$__exconnect" && export __exconnect
 	if test -n "$__bgp"; then
 		test "$__bgp" = "yes" && __bgp=bgp
 		test -n "$xcluster_TRENCH_TEMPLATE" || xcluster_TRENCH_TEMPLATE="$__bgp"
@@ -670,7 +671,7 @@ test_start() {
 	fi
 	otc 202 "conntrack 20000"
 	otcw "conntrack 20000"
-	test "$__use_multus" = "yes" && otc 1 multus_setup
+	test "$__exconnect" = "multus" && otc 1 multus_setup
 	otcprog=spire_test
 	otc 1 start_spire_registrar
 	otcprog=nsm-ovs_test
@@ -688,7 +689,7 @@ test_start() {
 ##     Start cluster with DHCP/SLAAC address allocation for FEs.
 ##     Multus is enforced.
 test_start_dhcp() {
-	__use_multus=yes
+	__exconnect=multus
 	unset __bgp
 	test_start dhcp
 	otcw cni_dhcp_start
@@ -701,20 +702,19 @@ test_start_e2e() {
 	export __e2e=yes
 	export xcluster_NSM_NAMESPACE=nsm
 	test_start
-	if test "$__use_multus" = "yes"; then
+	test "$__exconnect" = "multus" && \
 		kubectl apply -f $dir/default/etc/kubernetes/multus/crd-meridio.yaml
-	fi
 	otc 202 "setup_vlan --tag=100 eth3"
 	otc 202 "setup_vlan --tag=200 eth3"
 	otc 202 e2e_vip_route
 	local t
 	for t in $__trenches; do
-		otc 1 "e2e_trench --use-multus=$__use_multus $t"
+		otc 1 "e2e_trench --exonnect=$__exconnect $t"
 		otc 1 "e2e_target $t"
 	done
 }
 
-##   test [--trenches=red,...] [--use-multus] [--bgp] trench (default)
+##   test [--trenches=red,...] [--exconnect=] [--bgp] trench (default)
 ##     Test trenches. The default is to test all 3 trenches
 ##     Problems has been observed "after some time" so if
 ##     "--reconnect-delay=sec" is specified the Re-test connectivity
@@ -742,7 +742,7 @@ test_trench() {
 cmd_add_trench() {
 	test -n "$1" || die 'No trench'
 	cmd_env
-	if test "$__use_multus" = "yes"; then
+	if test "$__exconnect" = "multus"; then
 		case $1 in
 			red|pink)
 				otcw "local_vlan --bridge=mbr1 --tag=100 eth2";;
@@ -755,13 +755,13 @@ cmd_add_trench() {
 				otc 202 "radvd_start --prefix=fd00:100: eth3.100"
 				otc 202 "dhcpd eth3.100"
 				otcw "local_vlan --bridge=mbr1 --tag=100 eth2"
-				otc 1 "trench --use-multus $1"
+				otc 1 "trench --exconnect=multus $1"
 				return;;
 			*) tdie "Invalid trench [$1]";;
 		esac
 	fi
 	otc 202 "setup_vlan $1"
-	otc 1 "trench --use-multus=$__use_multus $1"
+	otc 1 "trench --exconnect=$__exconnect $1"
 }
 
 trench_test() {

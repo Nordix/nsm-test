@@ -60,7 +60,7 @@ configure_trench() {
 
 cmd_tcase_trench() {
 	configure_trench $1
-	if test "$__use_multus" = "yes"; then
+	if test "$__exconnect" = "multus"; then
 		tcase "Start trench using Multus [$1]"
 		kubectl apply -f /etc/kubernetes/multus/crd-$NAME.yaml
 	else
@@ -76,8 +76,8 @@ cmd_tcase_trench() {
 	test -n "$TRENCH_TEMPLATE" || TRENCH_TEMPLATE=default
 	envsubst < $yamld/conf/$TRENCH_TEMPLATE.yaml | $kubectl apply -f - || tdie
 	envsubst < $yamld/nse-template.yaml | $kubectl apply -f - || tdie
-	local f=$yamld/load-balancer-template.yaml
-	test "$__use_multus" = "yes" && f=$yamld/load-balancer-multus-template.yaml
+	local f=$yamld/load-balancer-$__exconnect-template.yaml
+	test -r $f || f=$yamld/load-balancer-template.yaml
 	envsubst < $f | $kubectl apply -f - || tdie
 	envsubst < $yamld$p/proxy-template.yaml | $kubectl apply -f - || tdie
 	test_deployment meridio-nse 120 || tdie
