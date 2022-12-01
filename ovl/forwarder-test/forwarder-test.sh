@@ -742,26 +742,37 @@ test_trench() {
 cmd_add_trench() {
 	test -n "$1" || die 'No trench'
 	cmd_env
-	if test "$__exconnect" = "multus"; then
-		case $1 in
-			red|pink)
-				otcw "local_vlan --bridge=mbr1 --tag=100 eth2";;
-			blue)
-				otcw "local_vlan --tag=200 eth2";;
-			green)
-				otcw "local_vlan --tag=100 eth3";;
-			black)
-				otc 202 "setup_vlan64 --tag=100 --prefix=fd00:100: eth3"
-				otc 202 "radvd_start --prefix=fd00:100: eth3.100"
-				otc 202 "dhcpd eth3.100"
-				otcw "local_vlan --bridge=mbr1 --tag=100 eth2"
-				otc 1 "trench --exconnect=multus $1"
-				return;;
-			*) tdie "Invalid trench [$1]";;
-		esac
-	fi
-	otc 202 "setup_vlan $1"
-	otc 1 "trench --exconnect=$__exconnect $1"
+	test -n "$__exconnect" || __exconnect=vlan
+	case $__exconnect in
+		multus)
+			case $1 in
+				red|pink)
+					otcw "local_vlan --bridge=mbr1 --tag=100 eth2";;
+				blue)
+					otcw "local_vlan --tag=200 eth2";;
+				green)
+					otcw "local_vlan --tag=100 eth3";;
+				black)
+					otc 202 "setup_vlan64 --tag=100 --prefix=fd00:100: eth3"
+					otc 202 "radvd_start --prefix=fd00:100: eth3.100"
+					otc 202 "dhcpd eth3.100"
+					otcw "local_vlan --bridge=mbr1 --tag=100 eth2"
+					otc 1 "deploy_trench --exconnect=multus $1"
+					return;;
+				*) tdie "Invalid trench [$1]";;
+			esac
+			otc 202 "setup_vlan $1"
+			otc 1 "deploy_trench --exconnect=$__exconnect $1";;
+		tunnel)
+			otc 1 "deploy_trench --exconnect=$__exconnect $1"
+			otc 202 "setup_tunnel $1";;
+		vlan)
+			otc 202 "setup_vlan $1"
+			otc 1 "deploy_trench --exconnect=$__exconnect $1";;
+		*)
+			tdie "Invalid exconnect [$__exconnect]"
+	esac
+	otc 1 "check_trench $1"
 }
 
 trench_test() {

@@ -20,6 +20,9 @@ spec:
           image: registry.nordix.org/cloud-native/meridio/init:local
           securityContext:
             privileged: true
+          env:
+            - name: INIT_FUNCTION
+              value: proxy
       containers:
         - name: proxy
           image: registry.nordix.org/cloud-native/meridio/proxy:local

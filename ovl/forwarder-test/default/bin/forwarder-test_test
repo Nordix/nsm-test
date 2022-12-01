@@ -57,8 +57,7 @@ configure_trench() {
 	. $f
 	test "$NS" != "default" && kubectl="kubectl -n $NS"
 }
-
-cmd_tcase_trench() {
+cmd_tcase_deploy_trench() {
 	configure_trench $1
 	if test "$__exconnect" = "multus"; then
 		tcase "Start trench using Multus [$1]"
@@ -80,6 +79,9 @@ cmd_tcase_trench() {
 	test -r $f || f=$yamld/load-balancer-template.yaml
 	envsubst < $f | $kubectl apply -f - || tdie
 	envsubst < $yamld$p/proxy-template.yaml | $kubectl apply -f - || tdie
+}
+cmd_tcase_check_trench() {
+	configure_trench $1
 	test_deployment meridio-nse 120 || tdie
 	test_statefulset meridio-ipam 120
 	local pod=$($kubectl get pods -l app=meridio-ipam -o name)
@@ -624,6 +626,34 @@ cmd_tcase_cni_dhcp_start() {
 	tcase "Start dhcp CNI-plugin daemon"
 	/opt/cni/bin/dhcp daemon > /var/log/dhcp-daemon.log 2>&1 &
 	return 0
+}
+##   tcase_setup_tunnel <trench>
+cmd_tcase_setup_tunnel() {
+	tcase "Setup vxlan tunnel for trench [$1]"
+	configure_trench $1
+	$kubectl apply -f $yamld/tunnel-svc.yaml
+	local remote=10.30.$VLAN_TAG.1
+	assign-lb-ip -n $NS -svc meridio-tunnel -ip $TUNNEL_SERVICE_IP
+	tex get_lb_node_address
+	ip ro add $TUNNEL_SERVICE_IP via $hostIP || tdie route
+	ip link add $NAME type vxlan id $TUNNEL_ID dev eth1 remote $TUNNEL_SERVICE_IP \
+		dstport 5533 srcport 5533 5534 || tdie vxlan
+	sysctl -w net.ipv6.conf.$NAME.accept_dad=0
+	ip link set up dev $NAME
+	ip addr add $GATEWAY4/24 dev $NAME || die addr4
+	ip -6 addr add $GATEWAY6/120 dev $NAME || die addr6
+	tex ping_tunnel $TUNNEL_IPV4
+	tex ping_tunnel $TUNNEL_IPV6
+}
+get_lb_node_address() {
+	local pod=$($kubectl get pod -o name -l app=meridio-load-balancer | head -1)
+	hostIP=$($kubectl get $pod -o json | jq -r .status.hostIP)
+	echo "pod=$pod, hostIP=$hostIP"
+	test -n "$hostIP" -a "$hostIP" != "null"
+}
+ping_tunnel() {
+	local adr=$(echo $1 | cut -f1 -d/)
+	ping -c1 -W1 $adr
 }
 
 . /etc/profile

@@ -29,6 +29,9 @@ spec:
           image: registry.nordix.org/cloud-native/meridio/init:local
           securityContext:
             privileged: true
+          env:
+            - name: INIT_FUNCTION
+              value: lb
       containers:
         - name: load-balancer
           image: registry.nordix.org/cloud-native/meridio/stateless-lb:local

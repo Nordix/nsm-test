@@ -49,6 +49,10 @@ findfile ctraffic.gz
 zcat $f > $tmp/bin/ctraffic
 chmod a+x $tmp/bin/ctraffic
 
+findfile assign-lb-ip.xz
+xz -dc $f > $tmp/bin/assign-lb-ip
+chmod a+x $tmp/bin/assign-lb-ip
+
 birdd=$($dir/forwarder-test.sh bird_dir)
 if test -x $birdd/bird; then
 	log "Include bird routing suite"
