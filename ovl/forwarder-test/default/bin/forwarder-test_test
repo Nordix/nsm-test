@@ -275,37 +275,24 @@ cmd_tcase_collect_lb_addresses() {
 
 cmd_tcase_trench_vip_route() {
 	tcase "Set VIP routes for trench [$1]"
-	test -n "$1" || die 'No trench'
-	# Remove old vip routes just in case
-	ip ro del 10.0.0.0/24 2> /dev/null
-	ip -6 ro del 1000::/120 2> /dev/null
-	ip -6 ro del 1000::1:10.0.0.0/120 2> /dev/null
+	configure_trench $1
 
-	local ns=$1
-	local out=/tmp/meridio-load-balancer-$ns
-	local vips
-	case $ns in
-		red|black) vips="10.0.0.1/32 10.0.0.16/28";;
-		blue)  vips="10.0.0.2/32 10.0.0.32/28";;
-		green) vips="10.0.0.3/32 10.0.0.48/28";;
-		pink) vips="10.0.0.4/32 10.0.0.64/28";;
-		*) die "Unknown trench";;
-	esac
-	local hops ip vip4 netbits vip6
-	for vip4 in $vips; do
-		hops=''
-		for ip in $(cat $out-ip4); do
-			hops="$hops nexthop via $ip"
-		done
-		ip route add $vip4 $hops || tdie "ip route add $vip4 $hops"
-		hops=''
-		netbits=$(echo $vip4 | cut -d/ -f2)
-		vip6="$ipv6prefix:$(echo $vip4 | cut -d/ -f1)"
-		vip6="$vip6/$((netbits + 96))"
-		for ip in $(cat $out-ip6); do
-			hops="$hops nexthop via $ip"
-		done
-		ip -6 route add $vip6 $hops || tdie "ip -6 route $vip6"
+	local out=/tmp/meridio-load-balancer-$NAME
+	local hops4 hops6 vip
+	for ip in $(cat $out-ip4); do
+		hops4="$hops4 nexthop via $ip"
+	done
+	for ip in $(cat $out-ip6); do
+		hops6="$hops6 nexthop via $ip"
+	done
+	for vip in $VIP1 $VIP2 $VIP3 $VIP4; do
+		if echo $vip | grep -q :; then
+			echo "ip -6 route add $vip $hops6"
+			ip -6 route add $vip $hops6 || tdie "ip route add $vip $hops6"
+		else
+			echo "ip route add $vip $hops4"
+			ip route add $vip $hops4 || tdie "ip route add $vip $hops4"
+		fi
 	done
 }
 
