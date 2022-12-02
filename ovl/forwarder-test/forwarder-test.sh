@@ -353,7 +353,7 @@ cmd_kind_stop_e2e() {
 	docker rm trench-a trench-b trench-c > /dev/null 2>&1
 }
 ##   kind_e2e [--no-stop]
-##     Run Meridio e2e in KinD
+##     Run Meridio e2e in KinD using the Makefile
 cmd_kind_e2e() {
 	local start now
 	start=$(date +%s)
@@ -365,37 +365,54 @@ cmd_kind_e2e() {
 	now=$(date +%s)
 	echo "Execution time; $((now-start))s"
 }
-
-##
-##   generator_cmd [--e2elog=] [cmd...]
-##     Called by Meridio e2e. Executes a command on vm-202
-cmd_generator_cmd() {
+##   e2e [ginkgo-params...]
+##     Run Meridio e2e dualstack tests. $FOCUS and $SKIP can be set.
+##     Example;
+##       ft e2e -v -no-color -dry-run
+##       FOCUS='IngressTraffic.*TCP-IPv' ft e2e
+cmd_e2e() {
 	cmd_env
-	if test -n "$__e2elog"; then
-		echo "======= Generator cmd [$@]" >> $__e2elog
-		rsh 202 $@ | tee -a $__e2elog
-	else
-		rsh 202 $@
-	fi
+	local d params
+	d=$MERIDIOD/test/e2e
+
+	# Original from $d/environment/kind-helm/dualstack/config.txt
+	params=$(grep -v '^#' $dir/kind/data/config.txt)
+	out=/tmp/$USER/e2e
+	rm -r $out; mkdir -p $out
+	ginkgo $@ --output-dir=$out -focus="$FOCUS" -skip="$SKIP" $d/... -- \
+		-traffic-generator-cmd="$me generator {trench}" \
+		-script=$d/environment/kind-helm/dualstack/test.sh $params
 }
-##   e2e_script [--e2elog=] <init|end|configuration_new_ip|configuration_new_ip_revert>
-##     Called by Meridio e2e. Makes local (re)configurations
-cmd_e2e_script() {
-	test -n "$1" || die "No command"
-	test -n "$__e2elog" && echo "===== e2e_script [$1]" >> $__e2elog
-	case $1 in
-		init|configuration_new_ip_revert)
-			kubectl patch configmap meridio-configuration-trench-a -n red \
-				--patch-file $dir/kind/data/default.yaml;;
-		end)
-		;;
-		configuration_new_ip)
-			kubectl patch configmap meridio-configuration-trench-a -n red \
-				--patch-file $dir/kind/data/new-ip.yaml;;
-		*)
-			die "Invalid command [$1]";;
-	esac
+cmd_generator() {
+	test -n "$GENERATOR_CMD" || GENERATOR_CMD='docker exec -i'
+	local cmd="$GENERATOR_CMD $@"
+	echo $cmd >> /tmp/$USER/e2e/generator.log
+	exec $cmd
 }
+##   install_e2e
+##     Install Meridio for e2e using tunnels
+cmd_install_e2e() {
+	cmd_env
+	local helmdir=$MERIDIOD/deployments/helm-tunnel
+	local t ns=red
+
+	for t in trench-a; do
+		helm_install meridio-$t $helmdir \
+			--create-namespace --namespace $ns --set trench.name=$t
+	done
+	for t in trench-a; do
+		test_statefulset ipam-$t 120 > /dev/null
+		test_statefulset nsp-$t 120 > /dev/null
+	done
+
+	for t in target-a; do
+		local tn=$(echo $t | sed -e 's,target,trench,')
+		helm_install meridio-$t $MERIDIOD/examples/target/deployments/helm/ \
+			--create-namespace --namespace $ns --set applicationName=$t \
+			--set default.trench.name=$tn
+	done
+}
+
 ##   bird_dir
 ##   bird_build
 ##     Build the Bird routing suite
