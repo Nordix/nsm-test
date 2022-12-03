@@ -1,0 +1,22 @@
+trench:
+  name: trench-b
+
+ipFamily: dualstack
+
+vlan:
+  id: 200
+  interface: eth2
+  ipv4Prefix: 169.254.102.0/24
+  ipv6Prefix: 1000::1:169.254.102.0/120
+  fe:
+    gateways:
+      - name: gateway1
+        address: 169.254.102.254
+        ipFamily: ipv4
+        bfd: false
+        protocol: static
+      - name: gateway2
+        address: 1000::1:169.254.102.254
+        ipFamily: ipv6
+        bfd: false
+        protocol: static

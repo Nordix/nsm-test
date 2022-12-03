@@ -655,9 +655,41 @@ ping_tunnel() {
 	local adr=$(echo $1 | cut -f1 -d/)
 	ping -c1 -W1 $adr
 }
+##   tcase_e2e_lb_route -- Setup VIP routing to LBs
+cmd_tcase_e2e_lb_route() {
+	tcase "Setup VIP routing to LBs"
+	# Get the addresses of the FE's and setup routes to the VIPs
+	cmd_collect_lb_addresses red app=load-balancer-trench-a ext-vlan.100
+	local adr hops4 hops6
+	for adr in $(cat $tmp/out); do
+		if echo $adr | grep -q :; then
+			hops6="$hops6 nexthop via $adr"
+		else
+			hops4="$hops4 nexthop via $adr"
+		fi
+	done
+	ip ro add 20.0.0.1 $hops4 || tdie
+	ip ro add 2000::1 $hops6 || tdie
+}
+# collect_lb_addresses ns label dev
+cmd_collect_lb_addresses() {
+	test -n "$3" || die "Parameter missing"
+	local ns=$1
+	local label=$2
+	local dev=$3
+	local pod
+	mkdir -p $tmp
+	for pod in $(kubectl -n $ns get pods -l $label -o name); do
+		kubectl -n $ns exec $pod -c fe -- ip -j addr show dev $dev > $tmp/raw
+		cat $tmp/raw | jq -r '.[].addr_info[]|select(.scope == "global")|.local' >> $tmp/out
+	done
+	cat $tmp/out >&2
+}
 
-. /etc/profile
-. /usr/lib/xctest
+if test -r /usr/lib/xctest; then
+	. /etc/profile
+	. /usr/lib/xctest
+fi
 indent='  '
 
 ##

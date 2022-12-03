@@ -92,7 +92,8 @@ cmd_private_reg() {
 	echo "$adr:$port"
 }
 ##   generate_e2e [--exconnect=] [--dest=dir] [--values=<path-pattern>]
-##     Generate Meridio e2e manifests
+##     Generate Meridio e2e manifests. Example;
+##     ft generate_e2e --values=$PWD/helm/vlan/values-xcluster
 cmd_generate_e2e() {
 	if test -z "$__dest"; then
 		__dest=/tmp/$USER/e2e-manifests
@@ -368,23 +369,35 @@ cmd_kind_e2e() {
 ##     Run Meridio e2e dualstack tests. $FOCUS and $SKIP can be set.
 ##     Example;
 ##       ft e2e -v -no-color -dry-run
-##       FOCUS='IngressTraffic.*TCP-IPv' ft e2e
+##       FOCUS='IngressTraffic.*TCP-IPv' __generator=vm202 ft e2e -v
 cmd_e2e() {
 	cmd_env
-	local d params
+	local d params script
 	d=$MERIDIOD/test/e2e
 
 	# Original from $d/environment/kind-helm/dualstack/config.txt
 	params=$(grep -v '^#' $dir/kind/data/config.txt)
 	out=/tmp/$USER/e2e
+	#script=$d/environment/kind-helm/dualstack/test.sh (hard-coded settings!)
+	local script=/bin/true
 	rm -fr $out; mkdir -p $out
 	ginkgo $@ --output-dir=$out -focus="$FOCUS" -skip="$SKIP" $d/... -- \
 		-traffic-generator-cmd="$me generator {trench}" \
-		-script=$d/environment/kind-helm/dualstack/test.sh $params
+		-script=$script $params
 }
 cmd_generator() {
-	test -n "$GENERATOR_CMD" || GENERATOR_CMD='docker exec -i'
-	local cmd="$GENERATOR_CMD $@"
+	test -n "$__generator" || __generator=docker
+	local cmd
+	case $__generator in
+		docker)
+			cmd="docker exec -i $@";;
+		vm202)
+			shift
+			cmd="ssh $sshopt root@192.168.0.202 $@"
+			cmd="$(echo $cmd | sed -e 's,5m,20s,')";;
+		*)
+			die "Invalid generator [$__generator]"
+	esac
 	echo $cmd >> /tmp/$USER/e2e/generator.log
 	exec $cmd
 }
@@ -643,7 +656,6 @@ cmd_build_init_image() {
 ##   test --list
 ##   test [--xterm] [--no-stop] [--local] [--nsm-local] [test...] > logfile
 ##     Exec tests
-##
 cmd_test() {
 	if test "$__list" = "yes"; then
 		grep '^test_' $me | cut -d'(' -f1 | sed -e 's,test_,,'
@@ -733,20 +745,21 @@ test_start_dhcp() {
 ##   test start_e2e
 ##     Start cluster with NSM and prepare for e2e or helm load
 test_start_e2e() {
-	test -n "$__trenches" || __trenches="a b"
-	export __e2e=yes
-	export xcluster_NSM_NAMESPACE=nsm
-	test_start
-	test "$__exconnect" = "multus" && \
-		kubectl apply -f $dir/default/etc/kubernetes/multus/crd-meridio.yaml
-	otc 202 "setup_vlan --tag=100 eth3"
-	otc 202 "setup_vlan --tag=200 eth3"
-	otc 202 e2e_vip_route
-	local t
-	for t in $__trenches; do
-		otc 1 "e2e_trench --exonnect=$__exconnect $t"
-		otc 1 "e2e_target $t"
-	done
+	test_start_empty
+
+	tcase "Install Spire"
+	kubectl apply -k $MERIDIOD/docs/demo/deployments/spire > /dev/null 2>&1 \
+		|| die "kubectl apply -k $MERIDIOD/docs/demo/deployments/spire"
+	tcase "Install NSM"
+	helm_install nsm $MERIDIOD/docs/demo/deployments/nsm  \
+		--create-namespace --namespace nsm
+	cmd_kind_check_nsm
+
+	otc 202 "setup_vlan red"
+	otc 202 "setup_vlan blue"
+	__values=$dir/helm/vlan/values-xcluster
+	cmd_install_e2e
+	otc 202 e2e_lb_route
 }
 
 ##   test [--trenches=red,...] [--exconnect=] [--bgp] trench (default)
@@ -921,18 +934,16 @@ test_port_nat_vip() {
 	xcluster_stop
 }
 
-##   test [--no-start] e2e
-##     Run the Meridio e2e suite
+##   test e2e
+##     Run Meridio e2e suite
 test_e2e() {
-	tlog "=== Meridio e2e"
-	test -n "$__e2elog" && rm -f "$__e2elog"
-	test "$__no_start" != "yes" && test_start_e2e
+	tlog "=== Meridio e2e (partial)"
+	test_start_e2e
 	otc 202 "mconnect_adr 20.0.0.1:4000"
 	otc 202 "mconnect_adr [2000::1]:4000"
-	$dir/kind/data/test.sh init
-	cd $MERIDIOD
-	make TRAFFIC_GENERATOR_CMD="$me generator_cmd" \
-		E2E_SCRIPT="$dir/kind/data/test.sh" e2e 1>&2 || tdie "make e2e"
+	test -n "$FOCUS" || FOCUS='IngressTraffic.*TCP-IPv'
+	tcase "Meridio e2e FOCUS [$FOCUS]"
+	FOCUS="$FOCUS" __generator=vm202 $me e2e -v >&2
 	xcluster_stop
 }
 xcbr3_add_vlan() {
