@@ -91,7 +91,7 @@ cmd_private_reg() {
 	local adr=$(cat $tmp/private_reg | jq -r .Gateway)
 	echo "$adr:$port"
 }
-##   generate_e2e [--exconnect=] [--dest=dir]
+##   generate_e2e [--exconnect=] [--dest=dir] [--values=<path-pattern>]
 ##     Generate Meridio e2e manifests
 cmd_generate_e2e() {
 	if test -z "$__dest"; then
@@ -101,23 +101,26 @@ cmd_generate_e2e() {
 	test -d "$__dest" || die "Not a directory [$__dest]"
 	test -n "$__exconnect" || __exconnect=vlan
 	cmd_env
-	local valued=$dir/helm/$__exconnect
-	test -d $valued || die "No values for [$__exconnect]"
+	test -n "$__values" || __values=$dir/helm/$__exconnect/values
 	local helmdir=$MERIDIOD/deployments/helm-$__exconnect
 	test -d $helmdir || helmdir=$MERIDIOD/deployments/helm
-	helm template $helmdir -f $valued/values-a.yaml \
-		--set ipFamily=dualstack > $__dest/trench-a.yaml 2> /dev/null
 
-	helm template $helmdir -f $valued/values-b.yaml \
-		--set ipFamily=dualstack > $__dest/trench-b.yaml 2> /dev/null
+	local x
+	for x in a b; do
+		test -r "$__values-$x.yaml" || die "Not readable [$__values-$x.yaml]"
+	done
 
-	helm template $MERIDIOD/examples/target/deployments/helm/ \
-		--set applicationName=target-a --set default.trench.name=trench-a \
-		> $__dest/target-a.yaml 2> /dev/null
+	for x in a b; do
+		helm template $helmdir -f $__values-$x.yaml 2> /dev/null \
+			> $__dest/trench-$x.yaml || die "$__values-$x.yaml"
+	done
 
-	helm template $MERIDIOD/examples/target/deployments/helm/ \
-		--set applicationName=target-b --set default.trench.name=trench-b \
-		> $__dest/target-b.yaml 2> /dev/null
+	for x in a b; do
+		helm template $MERIDIOD/examples/target/deployments/helm/ \
+			--set applicationName=target-$x \
+			--set default.trench.name=trench-$x \
+			> $__dest/target-$x.yaml 2> /dev/null
+	done
 
 	echo "E2e manifests in [$__dest]"
 }
@@ -186,7 +189,7 @@ cmd_kind_start() {
 			tee -a /etc/profile.d/01-locale-fix.sh > /dev/null
 	done
 
-	if test "$__multus" = "yes"; then
+	if test "$__xconnect" = "multus"; then
 		local prep=$MERIDIOD/test/e2e/meridio-e2e.sh
 		if test -x $prep; then
 			log "Multus e2e multus_prepare"
@@ -194,7 +197,7 @@ cmd_kind_start() {
 			$prep multus_prepare
 		else
 			log "Installing Multus"
-			local d=$($XCLUSTER ovld multus)/default/etc/kubernetes/multus
+			local d=$($XCLUSTER ovld multus)
 			kubectl apply -f $d/multus-install.yaml
 			# prepare for "node-annotation" ipam
 			for w in $(kind --name=$KIND_CLUSTER_NAME get nodes); do
@@ -325,42 +328,21 @@ cmd_kind_check_nsm() {
 }
 ##   kind_start_e2e
 ##     Start a KinD cluster for Meridio e2e
-KIND_TRENCHES="trench-a trench-b"
-KIND_TARGETS="target-a target-b"
 cmd_kind_start_e2e() {
 	cmd_env
+	test -n "$__exconnect" || __exconnect=vlan
+	local valued=$dir/helm/$__exconnect
+	test -d $valued || die "No values found for [$__exconnect]"
+	__values=$valued/values
+
 	cmd_kind_stop_e2e > /dev/null 2>&1
-	local helmdir=$MERIDIOD/deployments/helm
-	test "$__multus" = "yes" && helmdir=$MERIDIOD/deployments/helm-multus
 	cmd_kind_start_nsm
-
-	local t vlanid=100 ns=red
-	kubectl="kubectl -n $ns"
-
-	for t in $KIND_TRENCHES; do
+	local t x
+	for x in a b; do
+		t=trench-$x
 		cmd_kind_start_gw $t > /dev/null
-		helm_install $helmdir --generate-name \
-			--create-namespace --namespace $ns --set trench.name=$t \
-			--set vlan.id=$vlanid --set ipFamily=dualstack
-		vlanid=$((vlanid + 100))
 	done
-	for t in $KIND_TRENCHES; do
-		test_statefulset ipam-$t 120 > /dev/null
-		test_statefulset nsp-$t 120 > /dev/null
-		test_deployment load-balancer-$t 120 > /dev/null
-		test "$__multus" != "yes" && test_deployment nse-vlan-$t 120 > /dev/null
-		test_daemonset proxy-$t 120 > /dev/null
-	done
-
-	for t in $KIND_TARGETS; do
-		local tn=$(echo $t | sed -e 's,target,trench,')
-		helm_install meridio-$t $MERIDIOD/examples/target/deployments/helm/ \
-			--create-namespace --namespace $ns --set applicationName=$t \
-			--set default.trench.name=$tn
-	done
-	for t in $KIND_TARGETS; do
-		test_deployment $t 120 > /dev/null
-	done
+	cmd_install_e2e
 }
 ##   kind_stop_e2e
 ##     Stop a KinD cluster and docker GWs
@@ -406,27 +388,46 @@ cmd_generator() {
 	echo $cmd >> /tmp/$USER/e2e/generator.log
 	exec $cmd
 }
-##   install_e2e
+##   install_e2e --values=<path-prefix>
 ##     Install Meridio for e2e using tunnels
 cmd_install_e2e() {
+	test -n "$__exconnect" || __exconnect=vlan
+	test -n "$__values" || die "No values"
 	cmd_env
-	local helmdir=$MERIDIOD/deployments/helm-tunnel
-	local t ns=red
+	local helmdir=$MERIDIOD/deployments/helm-$__exconnect
+	test -d $helmdir || helmdir=$MERIDIOD/deployments/helm
 
-	for t in trench-a; do
-		helm_install meridio-$t $helmdir \
-			--create-namespace --namespace $ns --set trench.name=$t
+	local x t ns=red
+	kubectl="kubectl -n $ns"
+	for x in a b; do
+		test -r $__values-$x.yaml || die "Not readable [$__values-$x.yaml]"
 	done
-	for t in trench-a; do
+
+	for x in a b; do
+		t=trench-$x
+		cmd_kind_start_gw $t > /dev/null
+		helm_install meridio-$t $helmdir --create-namespace --namespace $ns \
+			-f $__values-$x.yaml || die "helm_install $t"
+	done
+	for x in a b; do
+		t=trench-$x
 		test_statefulset ipam-$t 120 > /dev/null
 		test_statefulset nsp-$t 120 > /dev/null
+		test_deployment load-balancer-$t 120 > /dev/null
+		test "$__exconnect" = "vlan" && test_deployment nse-vlan-$t 120 > /dev/null
+		test_daemonset proxy-$t 120 > /dev/null
 	done
 
-	for t in target-a; do
-		local tn=$(echo $t | sed -e 's,target,trench,')
+	for x in a b; do
+		t=target-$x
+		local tn=trench-$x
 		helm_install meridio-$t $MERIDIOD/examples/target/deployments/helm/ \
 			--create-namespace --namespace $ns --set applicationName=$t \
 			--set default.trench.name=$tn
+	done
+	for x in a b; do
+		t=target-$x
+		test_deployment $t 120 > /dev/null
 	done
 }
 
