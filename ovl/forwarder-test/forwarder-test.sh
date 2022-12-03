@@ -72,6 +72,7 @@ cmd_env() {
 	test -x "$XCLUSTER" || die "Not executable [$XCLUSTER]"
 	test -n "$__out" || __out=$(readlink -f $dir/_output)
 	eval $($XCLUSTER env)
+	images=$($XCLUSTER ovld images)/images.sh
 	env_set=yes
 }
 
@@ -90,31 +91,47 @@ cmd_private_reg() {
 	local adr=$(cat $tmp/private_reg | jq -r .Gateway)
 	echo "$adr:$port"
 }
-
-# obsolete;
-#   generate_e2e --dest=dir
-#     Generate Meridio e2e manifests
+##   generate_e2e [--exconnect=] [--dest=dir]
+##     Generate Meridio e2e manifests
 cmd_generate_e2e() {
-	test -n "$__dest" || die "No dest"
+	if test -z "$__dest"; then
+		__dest=/tmp/$USER/e2e-manifests
+		mkdir -p $__dest
+	fi
 	test -d "$__dest" || die "Not a directory [$__dest]"
+	test -n "$__exconnect" || __exconnect=vlan
 	cmd_env
+	local valued=$dir/helm/$__exconnect
+	test -d $valued || die "No values for [$__exconnect]"
 	local helmdir=$MERIDIOD/deployments/helm-$__exconnect
 	test -d $helmdir || helmdir=$MERIDIOD/deployments/helm
-	helm template $helmdir -f $dir/helm/values-a.yaml \
-		--generate-name --create-namespace --namespace red \
+	helm template $helmdir -f $valued/values-a.yaml \
 		--set ipFamily=dualstack > $__dest/trench-a.yaml 2> /dev/null
 
-	helm template $helmdir -f $dir/helm/values-b.yaml \
-		--generate-name --create-namespace --namespace blue \
+	helm template $helmdir -f $valued/values-b.yaml \
 		--set ipFamily=dualstack > $__dest/trench-b.yaml 2> /dev/null
 
-	helm template $MERIDIOD/examples/target/deployments/helm/ --generate-name \
-		--create-namespace --namespace red --set applicationName=target-a \
-		--set default.trench.name=trench-a > $__dest/target-a.yaml 2> /dev/null
+	helm template $MERIDIOD/examples/target/deployments/helm/ \
+		--set applicationName=target-a --set default.trench.name=trench-a \
+		> $__dest/target-a.yaml 2> /dev/null
 
-	helm template $MERIDIOD/examples/target/deployments/helm/ --generate-name \
-		--create-namespace --namespace blue --set applicationName=target-b \
-		--set default.trench.name=trench-b > $__dest/target-b.yaml 2> /dev/null
+	helm template $MERIDIOD/examples/target/deployments/helm/ \
+		--set applicationName=target-b --set default.trench.name=trench-b \
+		> $__dest/target-b.yaml 2> /dev/null
+
+	echo "E2e manifests in [$__dest]"
+}
+##   e2e_preload
+##     Pre-load e2e images to the local registry
+cmd_e2e_preload() {
+	cmd_env
+	mkdir -p $tmp
+	__dest=$tmp
+	cmd_generate_e2e > /dev/null
+	helm template $MERIDIOD/docs/demo/deployments/nsm \
+		2> /dev/null > $tmp/nsm.yaml
+	kubectl kustomize $MERIDIOD/docs/demo/deployments/spire > $tmp/spire.yaml
+	$images lreg_preload $tmp
 }
 ##   helm_template [--dest=...yaml] [--values=] <dir>
 ##     Generate manifests from a helm template
@@ -378,7 +395,7 @@ cmd_e2e() {
 	# Original from $d/environment/kind-helm/dualstack/config.txt
 	params=$(grep -v '^#' $dir/kind/data/config.txt)
 	out=/tmp/$USER/e2e
-	rm -r $out; mkdir -p $out
+	rm -fr $out; mkdir -p $out
 	ginkgo $@ --output-dir=$out -focus="$FOCUS" -skip="$SKIP" $d/... -- \
 		-traffic-generator-cmd="$me generator {trench}" \
 		-script=$d/environment/kind-helm/dualstack/test.sh $params
