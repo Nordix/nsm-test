@@ -401,7 +401,7 @@ cmd_generator() {
 	echo $cmd >> /tmp/$USER/e2e/generator.log
 	exec $cmd
 }
-##   install_e2e --values=<path-prefix>
+##   install_e2e --values=<path-prefix> [--extconnect=vlan|tunnel]
 ##     Install Meridio for e2e using tunnels
 cmd_install_e2e() {
 	test -n "$__exconnect" || __exconnect=vlan

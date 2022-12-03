@@ -31,15 +31,75 @@ dbg() {
 	test -n "$__verbose" && echo "$prg: $*" >&2
 }
 
-##   env
-##     Print environment.
-##
-cmd_env() {
-	if test "$cmd" = "env"; then
-		set | grep -E '^(__.*|ARCHIVE)='
+# initvar <variable> [default]
+#   Initiate a variable. The __<variable> will be defined if not set,
+#   from $TUNNEL_<variable-upper-case> or from the passed default
+initvar() {
+	local n N v
+	n=$1
+	v=$(eval "echo \$__$n")
+	test -n "$v" && return 0	# Already set
+	N=$(echo $n | tr a-z A-Z)
+	v=$(eval "echo \$TUNNEL_$N")
+	if test -n "$v"; then
+		eval "__$n='$v'"
 		return 0
 	fi
+	test -n "$2" && eval "__$n=$2"
 	return 0
+}
+
+##   env
+##     Print environment.
+cmd_env() {
+	test "$envset" = "yes" && return 0
+	params="type|dev|master|peer|id|dport|sport|ipv4|ipv6|remote_ipv4"
+	initvar dev vxlan0
+	initvar master eth0
+	initvar peer
+	initvar id
+	initvar dport 5533
+	initvar sport 5533
+	initvar ipv4
+	initvar ipv6
+	initvar remote_ipv4
+	if test "$cmd" = "env"; then
+		set | grep -E "^__($params).*=" | sort
+		return 0
+	fi
+	envset=yes
+}
+##   hold
+##     Hold execution
+cmd_hold() {
+	log "Hold execution"
+	tail -f /dev/null
+}
+##   vxlan --peer=ip-address --id=vni [--master=] [--dev=] \
+##       [--dport=] [--sport=]
+##     Setup a vxlan tunnel.
+cmd_vxlan() {
+	cmd_env
+	log "Setup a VXLAN tunnel to [$__peer/$__id]"
+	test -n "$__peer" || die "No peer address"
+	test -n "$__id" || die "No VNI"
+	local sport1=$((__sport + 1))
+	ip link add $__dev type vxlan id $__id dev $__master remote $__peer \
+		dstport $__dport srcport $__sport $sport1
+}
+##   ping_remote [--remote-ipv4=]
+##     Ping the remote end of the tunnel until response. This should
+##     initiate a setup through a K8s UDP service.
+cmd_ping_remote() {
+	cmd_env
+	test -n "$__remote_ipv4" || die no address
+	log "Ping $__remote_ipv4 ..."
+	while ! ping -c1 -W1 $__remote_ipv4; do
+		log " ... no response"
+		sleep 4
+		log "Ping $__remote_ipv4 ..."
+	done
+	log "Ping $__remote_ipv4 succesful"
 }
 
 start_bird() {
@@ -77,14 +137,20 @@ container_start() {
 	tail -f /dev/null
 }
 
-# If this script is started as pid=1 it's supposed to be the start
-# command in the Meridio GW container.
-test "$$" -eq 1 && container_start
-
+##
 # Get the command
-test -n "$1" || help
-cmd=$1
-shift
+if test -n "$1"; then
+	cmd=$1
+	shift
+elif test -n "$INIT_FUNCTION"; then
+	cmd=$INIT_FUNCTION
+else
+	# If this script is started as pid=1 it's supposed to be the start
+	# command in the Meridio GW container.
+	test "$$" -eq 1 && container_start
+fi
+
+test -n "$cmd" || help
 grep -q "^cmd_$cmd()" $0 $hook || die "Invalid command [$cmd]"
 
 while echo "$1" | grep -q '^--'; do
