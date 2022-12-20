@@ -237,7 +237,7 @@ nodes and then Multus "host-device" is used to move the interface to
 the `load-balancer` POD and rename it "nsm-1".
 
 ```
-./forwarder-test.sh test --use-multus > $log
+./forwarder-test.sh test --exconnect=multus > $log
 ```
 
 We must assign addresses to the external interface in the
@@ -245,15 +245,6 @@ We must assign addresses to the external interface in the
 is a tiny script wrapper around `host-local`. IRL this may be DHCP or
 [whereabouts](https://github.com/k8snetworkplumbingwg/whereabouts) or
 something else.
-
-#### Multus stand-alone test
-
-To configure Multus can be tricky so you can test the Multus setup
-without NSM and Meridio;
-
-```
-./forwarder-test.sh test multus > $log
-```
 
 
 ## Antrea CNI-plugin and forwarder-ovs

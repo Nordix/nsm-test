@@ -98,7 +98,7 @@ spec:
               readOnly: false
           securityContext:
             capabilities:
-              add: ["NET_ADMIN"]
+              add: ["NET_ADMIN", "DAC_OVERRIDE", "IPC_LOCK", "IPC_OWNER", "NET_RAW", "SYS_PTRACE"]
         - name: nsc
           image: registry.nordix.org/cloud-native/nsm/cmd-nsc:v1.6.1
           imagePullPolicy: IfNotPresent
@@ -190,6 +190,15 @@ spec:
             - name: spire-agent-socket
               mountPath: /run/spire/sockets
               readOnly: true
+            - name: run
+              mountPath: /var/run/bird
+              readOnly: false
+            - name: etc
+              mountPath: /etc/bird
+              readOnly: false
+            - name: log
+              mountPath: /var/log
+              readOnly: false
           securityContext:
             capabilities:
               add: ["NET_ADMIN"]
@@ -202,3 +211,12 @@ spec:
           hostPath:
             path: /var/lib/networkservicemesh
             type: DirectoryOrCreate
+        - name: run
+          emptyDir:
+            medium: Memory
+        - name: etc
+          emptyDir:
+            medium: Memory
+        - name: log
+          emptyDir:
+            medium: Memory

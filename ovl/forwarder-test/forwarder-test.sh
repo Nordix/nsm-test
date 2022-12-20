@@ -496,7 +496,7 @@ cmd_chversion() {
 	test -n "$__old" || __old=local
 	local f new=$1
 	for f in $(find $__dir -name '*.yaml'); do
-		sed -i -E "s,image:(.*(frontend|ipam|load-balancer|nsp|proxy|tapa)):$__old,image:\\1:$new," $f
+		sed -i -E "s,image:(.*(frontend|ipam|stateless-lb|nsp|proxy|tapa)):$__old,image:\\1:$new," $f
 	done
 }
 ##   lreg_cache [version]
@@ -507,7 +507,7 @@ cmd_lreg_cache() {
 	test -n "$1" || ver=$MERIDIOVER
 	local images=$($XCLUSTER ovld images)/images.sh
 	local f
-	for f in frontend ipam load-balancer nsp proxy tapa; do
+	for f in frontend ipam stateless-lb nsp proxy tapa; do
 		$images lreg_cache \
 			registry.nordix.org/cloud-native/meridio/$f:$ver || die
 	done
@@ -761,7 +761,7 @@ test_start_e2e() {
 	cmd_install_e2e
 	otc 202 e2e_lb_route
 }
-
+##   MERIDIOVER=v1.0.0 \
 ##   test [--trenches=red,...] [--exconnect=] [--bgp] trench (default)
 ##     Test trenches. The default is to test all 3 trenches
 ##     Problems has been observed "after some time" so if
