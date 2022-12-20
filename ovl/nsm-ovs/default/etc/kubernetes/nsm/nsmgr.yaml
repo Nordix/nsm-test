@@ -37,6 +37,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        - name: NSM_REGISTRY_SERVER_POLICIES
+          value: ""
+        - name: NSM_REGISTRY_CLIENT_POLICIES
+          value: ""
         image: ghcr.io/networkservicemesh/cmd-nsmgr:v1.6.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
