@@ -820,7 +820,7 @@ cmd_add_trench() {
 		*)
 			tdie "Invalid exconnect [$__exconnect]"
 	esac
-	otc 1 "check_trench $1"
+	otc 1 "check_trench --exconnect=$__exconnect $1"
 }
 
 trench_test() {
