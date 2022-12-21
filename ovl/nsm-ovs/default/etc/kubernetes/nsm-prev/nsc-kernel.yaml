@@ -2,22 +2,22 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: nsc-network2
-  name: nsc-network2
+    app: nsc-kernel
+  name: nsc-kernel
 spec:
   selector:
     matchLabels:
-      app: nsc-network2
+      app: nsc-kernel
   replicas: 3
   template:
     metadata:
       labels:
-        app: nsc-network2
+        app: nsc-kernel
     spec:
       containers:
       - env:
         - name: NSM_NETWORK_SERVICES
-          value: kernel://network2/nsm-1
+          value: kernel://finance-bridge/nsm-1
         - name: SPIFFE_ENDPOINT_SOCKET
           value: unix:///run/spire/sockets/agent.sock
         - name: NSM_LOG_LEVEL
@@ -28,7 +28,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        image: ghcr.io/networkservicemesh/cmd-nsc:v1.7.0-rc.3
+        image: ghcr.io/networkservicemesh/cmd-nsc:v1.6.1
         imagePullPolicy: IfNotPresent
         name: nsc
         volumeMounts:

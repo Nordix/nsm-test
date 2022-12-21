@@ -25,17 +25,17 @@ spec:
           value: unix:///run/spire/sockets/agent.sock
         - name: NSM_CONNECT_TO
           value: unix:///var/lib/networkservicemesh/nsm.io.sock
-        - name: NSM_SRIOV_CONFIG_FILE
-          value: /var/lib/networkservicemesh/smartnic.config
         - name: NSM_LOG_LEVEL
           value: TRACE
+        - name: NSM_SRIOV_CONFIG_FILE
+          value: /var/lib/networkservicemesh/smartnic.config
         - name: NSM_BRIDGE_NAME
           value: br-nsm
         - name: NSM_TUNNEL_IP
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        image: ghcr.io/networkservicemesh/cmd-forwarder-ovs:v1.7.0-rc.3
+        image: ghcr.io/networkservicemesh/cmd-forwarder-ovs:v1.6.1
         imagePullPolicy: IfNotPresent
         name: forwarder-ovs
         securityContext:
@@ -52,6 +52,9 @@ spec:
           name: cgroup
         - mountPath: /host/dev/vfio
           name: vfio
+        - mountPath: /var/run/openvswitch
+          name: ovs-socket
+          readOnly: true
         - name: nsm-config
           mountPath: /etc/nsm
       hostNetwork: true
@@ -77,6 +80,10 @@ spec:
           path: /dev/vfio
           type: DirectoryOrCreate
         name: vfio
+      - hostPath:
+          path: /usr/local/var/run/openvswitch
+          type: DirectoryOrCreate
+        name: ovs-socket
       - name: nsm-config
         hostPath:
           path: /etc/nsm/

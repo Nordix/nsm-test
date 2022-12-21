@@ -2,17 +2,16 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: nse-remote-vlan
-  name: nse-remote-vlan
+    app: nse-network2
+  name: nse-network2
 spec:
   selector:
     matchLabels:
-      app: nse-remote-vlan
+      app: nse-network2
   template:
     metadata:
       labels:
-        app: nse-remote-vlan
-        spiffe.io/spiffe-id: "true"
+        app: nse-network2
     spec:
       containers:
       - env:
@@ -25,22 +24,16 @@ spec:
         - name: NSM_CONNECT_TO
           value: nsm-registry.default:5002
         - name: NSM_SERVICES
-          value: 'finance-bridge { vlan: 100; via: eth2}'
-# NSM > v1.3.x
+          value: 'network2 { vlan: 200; via: eth2}'
         - name: NSM_CIDR_PREFIX
-          value: "169.254.100.0/24,100:100::/64"
-# NSM <= v1.3.x
-#        - name: NSM_CIDR_PREFIX
-#          value: "169.254.100.0/24"
-#        - name: NSM_IPV6_PREFIX
-#          value: "100:100::/64"
+          value: "169.254.102.0/24,100:102::/64"
         - name: NSM_POINT2POINT
-          value: "True"
+          value: "False"
         - name: NSM_REGISTER_SERVICE
           value: "True"
         - name: NSM_LISTEN_ON
           value: tcp://:5003
-        image: ghcr.io/networkservicemesh/cmd-nse-remote-vlan:v1.7.0-rc.3
+        image: ghcr.io/networkservicemesh/cmd-nse-remote-vlan:v1.6.1
         imagePullPolicy: IfNotPresent
         name: nse
         ports:

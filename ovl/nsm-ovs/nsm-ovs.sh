@@ -135,7 +135,7 @@ cmd_set_local_image() {
 cmd_set_image_version() {
 	test -n "$1" || die "No version"
 	local n
-	for n in $(find $dir/default/etc/kubernetes -name '*.yaml'); do
+	for n in $(find $dir/default/etc/kubernetes/nsm -name '*.yaml'); do
 		echo "=== $(basename $n)"
 		sed -i -E -e "s,image: ghcr.io/networkservicemesh.*/([^:]+):.*,image: ghcr.io/networkservicemesh/\\1:$1," $n
 	done
@@ -308,6 +308,36 @@ test_multivlan() {
 	otc 1 "start_nsc nsc-network2"
 	otc 1 "collect_addresses nsc-network2"
 	otc 1 "internal_ping nsc-network2"
+	xcluster_stop
+}
+##   test upgrade
+##     Upgrade NSM and test with Ping/TCP
+test_upgrade() {
+	export xcluster_NSM_YAMLD=/etc/kubernetes/nsm-prev
+	test_start
+	otc 1 start_nse
+	otc 1 start_nsc
+	otc 1 collect_addresses
+	otc 1 internal_ping
+	otc 202 setup_vlan
+	otc 202 collect_addresses
+	otc 202 external_ping
+	otc 1 start_tcp_servers
+	otc 1 internal_tcp
+	otc 202 external_tcp
+
+	otc 1 "start_nsm --yamld=/etc/kubernetes/nsm"
+	otc 1 "start_forwarder --yamld=/etc/kubernetes/nsm"
+	test "$xcluster_NSM_FORWARDER" = "vpp" && otc 1 vpp_version
+
+	otc 1 collect_addresses
+	otc 1 internal_ping
+	otc 202 collect_addresses
+	otc 202 external_ping
+	otc 1 internal_tcp
+	otc 202 external_tcp
+
+	otc 1 stop_tcp_servers
 	xcluster_stop
 }
 

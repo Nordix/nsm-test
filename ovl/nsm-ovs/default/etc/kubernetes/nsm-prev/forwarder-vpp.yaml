@@ -2,42 +2,54 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
-    app: forwarder-ovs
-  name: forwarder-ovs
+    app: forwarder-vpp
+  name: forwarder-vpp
 spec:
   selector:
     matchLabels:
-      app: forwarder-ovs
+      app: forwarder-vpp
   template:
     metadata:
       labels:
-        app: forwarder-ovs
+        app: forwarder-vpp
     spec:
       containers:
       - env:
-        - name: NSM_L2_RESOURCE_SELECTOR_FILE
+        - name: NSM_DEVICE_SELECTOR_FILE
           value: /etc/nsm/DomainConfigFile
-        - name: NSM_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
+        - name: NSM_REGISTRY_CLIENT_POLICIES
+          value: ""
         - name: SPIFFE_ENDPOINT_SOCKET
           value: unix:///run/spire/sockets/agent.sock
-        - name: NSM_CONNECT_TO
-          value: unix:///var/lib/networkservicemesh/nsm.io.sock
-        - name: NSM_SRIOV_CONFIG_FILE
-          value: /var/lib/networkservicemesh/smartnic.config
         - name: NSM_LOG_LEVEL
           value: TRACE
-        - name: NSM_BRIDGE_NAME
-          value: br-nsm
         - name: NSM_TUNNEL_IP
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        image: ghcr.io/networkservicemesh/cmd-forwarder-ovs:v1.7.0-rc.3
+        - name: NSM_CONNECT_TO
+          value: unix:///var/lib/networkservicemesh/nsm.io.sock
+        - name: NSM_LISTEN_ON
+          value: unix:///listen.on.sock
+        - name: NSM_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        image: ghcr.io/networkservicemesh/cmd-forwarder-vpp:v1.6.1
         imagePullPolicy: IfNotPresent
-        name: forwarder-ovs
+        livenessProbe:
+          exec:
+            command:
+            - /bin/grpc-health-probe
+            - -spiffe
+            - -addr=unix:///listen.on.sock
+        name: forwarder-vpp
+        readinessProbe:
+          exec:
+            command:
+            - /bin/grpc-health-probe
+            - -spiffe
+            - -addr=unix:///listen.on.sock
         securityContext:
           privileged: true
         volumeMounts:
@@ -45,7 +57,7 @@ spec:
           name: spire-agent-socket
           readOnly: true
         - mountPath: /var/lib/networkservicemesh
-          name: nsm
+          name: nsm-socket
         - mountPath: /var/lib/kubelet
           name: kubelet-socket
         - mountPath: /host/sys/fs/cgroup
@@ -54,8 +66,8 @@ spec:
           name: vfio
         - name: nsm-config
           mountPath: /etc/nsm
+      dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
-      hostPID: true
       volumes:
       - hostPath:
           path: /run/spire/sockets
@@ -63,8 +75,8 @@ spec:
         name: spire-agent-socket
       - hostPath:
           path: /var/lib/networkservicemesh
-          type: Directory
-        name: nsm
+          type: DirectoryOrCreate
+        name: nsm-socket
       - hostPath:
           path: /var/lib/kubelet
           type: Directory

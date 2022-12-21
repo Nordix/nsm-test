@@ -37,11 +37,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        - name: NSM_REGISTRY_SERVER_POLICIES
-          value: ""
-        - name: NSM_REGISTRY_CLIENT_POLICIES
-          value: ""
-        image: ghcr.io/networkservicemesh/cmd-nsmgr:v1.7.0-rc.3
+        image: ghcr.io/networkservicemesh/cmd-nsmgr:v1.6.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
@@ -70,7 +66,7 @@ spec:
       - env:
         - name: NSM_LOG_LEVEL
           value: TRACE
-        image: ghcr.io/networkservicemesh/cmd-exclude-prefixes-k8s:v1.7.0-rc.3
+        image: ghcr.io/networkservicemesh/cmd-exclude-prefixes-k8s:v1.6.1
         imagePullPolicy: IfNotPresent
         name: exclude-prefixes
         volumeMounts:
