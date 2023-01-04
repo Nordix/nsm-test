@@ -485,7 +485,35 @@ cmd_tcase_ping_lb_target() {
 		done
 	done
 }
-
+cmd_tcase_test_ping_lb_target() {
+	tcase "Test to ping all targets from all LB's in trench [$1]"
+	configure_trench $1
+	test -r /tmp/target-addr-$NS || tdie "Target addresses not collected"
+	local pod adr
+	for pod in $(kubectl get pod -n $NS -l app=meridio-load-balancer -o name); do
+		for adr in $(cat /tmp/target-addr-$NS); do
+			echo $adr | grep -Fq 10.0.0. && continue
+			echo $adr | grep -Fq 1000::1:a00: && continue
+			$kubectl exec $pod -c fe -- ping -c1 -W1 $adr || \
+				tlog "In $pod, ping $adr"
+		done
+	done
+}
+##   tcase_show_shm <trench> - Log nfqln shared mem
+cmd_tcase_show_shm() {
+	tcase "Log nfqln shared mem"
+	configure_trench $1
+	local pod out n
+	mkdir -p $tmp
+	out=$tmp/shm
+	for pod in $(kubectl get pod -n $NS -l app=meridio-load-balancer -o name); do
+		$kubectl exec $pod -c load-balancer -- nfqlb show --shm=tshm-stream1 > $out
+		cat $out
+		n=$(cat $out | grep Active: | tr -dc ')' | wc -c)
+		tlog "$pod - targets $n"
+	done
+	return 0
+}
 cmd_tcase_configmap() {
 	# . /etc/kubernetes/forwarder-test/red.conf
 	# f=/etc/kubernetes/forwarder-test/conf-xflow-template.yaml
@@ -692,6 +720,19 @@ cmd_collect_lb_addresses() {
 	done
 	cat $tmp/out >&2
 }
+##   tcase_start_ctraffic - Start ctraffic client
+cmd_tcase_start_ctraffic() {
+	tcase "Start ctraffic"
+	ctraffic -stats all $@ > /tmp/ctraffic.out &
+	return 0
+}
+##   tcase_kill_ctraffic - Kill ctraffic client
+cmd_tcase_kill_ctraffic() {
+	tcase "Kill ctraffic"
+	killall ctraffic || tdie killall
+	sleep 1   # Allow time to write stats
+}
+
 
 if test -r /usr/lib/xctest; then
 	. /etc/profile

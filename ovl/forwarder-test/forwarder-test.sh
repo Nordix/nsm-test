@@ -972,6 +972,52 @@ test_dhcp() {
 	trench_test black
 	xcluster_stop	
 }
+##   test nsm_upgrade
+##     Upgrade NSM whith traffic running
+test_nsm_upgrade() {
+	# Select the previous NSM version
+	export xcluster_NSM_YAMLD=/etc/kubernetes/nsm-prev
+	test_start
+	local trench=red
+	test -n "$__bgp" && otc 202 "bird --conf=$__bird_conf"
+	trench_test $trench
+
+	local S now
+	S=$(date +%s)
+	otc 202 "start_ctraffic -address 10.0.0.1:5003 -nconn 20 -rate 200 -timeout 10m"
+	tcase "Sleep 30s"; sleep 30
+
+	# Upgrade NSM to the current version
+	otcprog=nsm-ovs_test
+	otc 1 "start_nsm --yamld=/etc/kubernetes/nsm"
+	otc 1 "start_forwarder --yamld=/etc/kubernetes/nsm"
+	unset otcprog
+	#tcase "Sleep 30s"; sleep 30
+
+	now=$(date +%s)
+	while test $((now - S)) -lt 300; do
+		tlog "Elapsed $((now - S))"
+		otc 2 "show_shm red"
+		otc 2 "test_ping_lb_target red"
+		tcase "Sleep 10s ..."; sleep 10
+		now=$(date +%s)
+	done
+
+	#tcase "Sleep 30s ..."; sleep 30
+
+	otc 202 kill_ctraffic
+	tcase "Get /tmp/ctraffic.out"
+	rcp 202 /tmp/ctraffic.out /tmp/ctraffic.out
+	xcluster_stop
+	ctraffic -stat_file /tmp/ctraffic.out -analyze hosts  >&2
+	cmd_ctraffic_plot
+}
+cmd_ctraffic_plot() {
+	local d=$GOPATH/src/github.com/Nordix/ctraffic
+	test -x $d/scripts/plot.sh
+	$d/scripts/plot.sh throughput < /tmp/ctraffic.out > /tmp/ctraffic.svg
+	eog /tmp/ctraffic.svg &
+}
 
 
 ##
