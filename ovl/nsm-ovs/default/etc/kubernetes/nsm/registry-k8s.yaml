@@ -96,11 +96,21 @@ spec:
           value: tcp://:5002
         - name: REGISTRY_K8S_PROXY_REGISTRY_URL
           value: nsmgr-proxy:5004
-        - name: REGISTRY_K8S_REGISTRY_SERVER_POLICIES
+        - name: NSM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NSM_LOG_LEVEL
+          value: TRACE
+        - name: NSM_LISTEN_ON
+          value: tcp://:5002
+        - name: NSM_PROXY_REGISTRY_URL
+          value: nsmgr-proxy:5004
+        - name: NSM_REGISTRY_SERVER_POLICIES
           value: ""
-        - name: REGISTRY_K8S_REGISTRY_CLIENT_POLICIES
+        - name: NSM_REGISTRY_CLIENT_POLICIES
           value: ""
-        image: ghcr.io/networkservicemesh/cmd-registry-k8s:v1.7.0-rc.3
+        image: ghcr.io/networkservicemesh/cmd-registry-k8s:v1.7.0
         imagePullPolicy: IfNotPresent
         name: registry
         ports:

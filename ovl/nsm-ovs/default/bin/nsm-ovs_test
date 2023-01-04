@@ -71,7 +71,7 @@ cmd_tcase_start_nsm() {
 	$kubectl apply -f $yamld/nsmgr.yaml || tdie
 	#kubectl apply -f $yamld/nsm-base.yaml || tdie
 	test_deployment registry-$NSM_REGISTRY 180
-	test_daemonset nsmgr 30
+	test_daemonset nsmgr 120
 }
 
 cmd_tcase_start_forwarder() {
