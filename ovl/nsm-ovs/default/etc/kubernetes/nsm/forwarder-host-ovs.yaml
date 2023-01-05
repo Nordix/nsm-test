@@ -15,6 +15,8 @@ spec:
     spec:
       containers:
       - env:
+        - name: NSM_REGISTRY_CLIENT_POLICIES
+          value: ""
         - name: NSM_L2_RESOURCE_SELECTOR_FILE
           value: /etc/nsm/DomainConfigFile
         - name: NSM_NAME
@@ -26,7 +28,7 @@ spec:
         - name: NSM_CONNECT_TO
           value: unix:///var/lib/networkservicemesh/nsm.io.sock
         - name: NSM_LOG_LEVEL
-          value: TRACE
+          value: DEBUG
         - name: NSM_SRIOV_CONFIG_FILE
           value: /var/lib/networkservicemesh/smartnic.config
         - name: NSM_BRIDGE_NAME

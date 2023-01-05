@@ -26,7 +26,7 @@ spec:
         - name: NSM_CONNECT_TO
           value: unix:///var/lib/networkservicemesh/nsm.io.sock
         - name: NSM_LOG_LEVEL
-          value: TRACE
+          value: DEBUG
         - name: NSM_SRIOV_CONFIG_FILE
           value: /var/lib/networkservicemesh/smartnic.config
         - name: NSM_BRIDGE_NAME

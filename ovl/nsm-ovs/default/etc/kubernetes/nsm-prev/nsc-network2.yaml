@@ -21,7 +21,7 @@ spec:
         - name: SPIFFE_ENDPOINT_SOCKET
           value: unix:///run/spire/sockets/agent.sock
         - name: NSM_LOG_LEVEL
-          value: TRACE
+          value: DEBUG
         - name: NSM_LIVENESSCHECKENABLED
           value: "false"
         - name: NSM_NAME

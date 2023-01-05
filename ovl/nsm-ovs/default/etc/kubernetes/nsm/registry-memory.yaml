@@ -34,7 +34,7 @@ spec:
         - name: REGISTRY_MEMORY_LISTEN_ON
           value: tcp://:5002
         - name: REGISTRY_MEMORY_LOG_LEVEL
-          value: TRACE
+          value: DEBUG
         - name: REGISTRY_MEMORY_PROXY_REGISTRY_URL
           value: nsmgr-proxy:5004
         - name: REGISTRY_MEMORY_REGISTRY_SERVER_POLICIES

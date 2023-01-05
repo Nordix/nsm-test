@@ -24,7 +24,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: NSM_LOG_LEVEL
-          value: TRACE
+          value: DEBUG
         - name: NSM_REGISTRY_URL
           value: nsm-registry:5002
         - name: POD_IP
@@ -69,7 +69,7 @@ spec:
           name: exclude-prefixes-volume
       - env:
         - name: NSM_LOG_LEVEL
-          value: TRACE
+          value: DEBUG
         image: ghcr.io/networkservicemesh/cmd-exclude-prefixes-k8s:v1.7.0
         imagePullPolicy: IfNotPresent
         name: exclude-prefixes
