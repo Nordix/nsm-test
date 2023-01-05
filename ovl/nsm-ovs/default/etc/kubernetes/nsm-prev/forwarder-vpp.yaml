@@ -17,8 +17,6 @@ spec:
       - env:
         - name: NSM_DEVICE_SELECTOR_FILE
           value: /etc/nsm/DomainConfigFile
-        - name: NSM_REGISTRY_CLIENT_POLICIES
-          value: ""
         - name: SPIFFE_ENDPOINT_SOCKET
           value: unix:///run/spire/sockets/agent.sock
         - name: NSM_LOG_LEVEL

@@ -17,6 +17,8 @@ spec:
       - env:
         - name: NSM_L2_RESOURCE_SELECTOR_FILE
           value: /etc/nsm/DomainConfigFile
+        - name: NSM_REGISTRY_CLIENT_POLICIES
+          value: ""
         - name: NSM_NAME
           valueFrom:
             fieldRef:
