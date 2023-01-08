@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: nse
-          image: ghcr.io/networkservicemesh/cmd-nse-remote-vlan:v1.6.1
+          image: ghcr.io/networkservicemesh/cmd-nse-remote-vlan:v1.7.0
           imagePullPolicy: IfNotPresent
           env:
             - name: SPIFFE_ENDPOINT_SOCKET
@@ -38,6 +38,8 @@ spec:
               value: "True"
             - name: NSM_LISTEN_ON
               value: tcp://:5003
+            - name: NSM_REGISTRY_CLIENT_POLICIES
+              value: ""
           volumeMounts:
             - name: spire-agent-socket
               mountPath: /run/spire/sockets

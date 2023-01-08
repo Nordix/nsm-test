@@ -1014,7 +1014,7 @@ test_nsm_upgrade() {
 }
 cmd_ctraffic_plot() {
 	local d=$GOPATH/src/github.com/Nordix/ctraffic
-	test -x $d/scripts/plot.sh
+	test -x $d/scripts/plot.sh || die $d/scripts/plot.sh
 	$d/scripts/plot.sh throughput < /tmp/ctraffic.out > /tmp/ctraffic.svg
 	eog /tmp/ctraffic.svg &
 }
