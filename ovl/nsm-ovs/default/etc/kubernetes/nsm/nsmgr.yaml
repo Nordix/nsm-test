@@ -41,7 +41,7 @@ spec:
           value: ""
         - name: NSM_REGISTRY_CLIENT_POLICIES
           value: ""
-        image: ghcr.io/networkservicemesh/cmd-nsmgr:v1.7.0
+        image: ghcr.io/networkservicemesh/cmd-nsmgr:v1.7.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
@@ -70,7 +70,7 @@ spec:
       - env:
         - name: NSM_LOG_LEVEL
           value: DEBUG
-        image: ghcr.io/networkservicemesh/cmd-exclude-prefixes-k8s:v1.7.0
+        image: ghcr.io/networkservicemesh/cmd-exclude-prefixes-k8s:v1.7.1
         imagePullPolicy: IfNotPresent
         name: exclude-prefixes
         volumeMounts:

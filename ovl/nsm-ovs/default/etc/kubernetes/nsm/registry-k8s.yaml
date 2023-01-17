@@ -100,7 +100,7 @@ spec:
           value: ""
         - name: NSM_REGISTRY_CLIENT_POLICIES
           value: ""
-        image: ghcr.io/networkservicemesh/cmd-registry-k8s:v1.7.0
+        image: ghcr.io/networkservicemesh/cmd-registry-k8s:v1.7.1
         imagePullPolicy: IfNotPresent
         name: registry
         ports:

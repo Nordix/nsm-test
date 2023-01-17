@@ -41,7 +41,7 @@ spec:
           value: ""
         - name: REGISTRY_MEMORY_REGISTRY_CLIENT_POLICIES
           value: ""
-        image: ghcr.io/networkservicemesh/cmd-registry-memory:v1.7.0
+        image: ghcr.io/networkservicemesh/cmd-registry-memory:v1.7.1
         imagePullPolicy: IfNotPresent
         name: registry
         ports:
