@@ -177,6 +177,24 @@ and can be tested with;
 ./forwarder-test.sh test port_nat_vip > $log
 ```
 
+### Upgrade test
+
+* Upgrade NSM while keeping the Meridio version (NSM NBC test)
+* Load new Meridio with the NSM old version (Meridio NBC test)
+* Load new Meridio with the NSM new version
+
+```
+./forwarder-test.sh chversion_nsm v1.6.1
+#xcluster_NSM_FORWARDER=ovs \
+MERIDIOVER=v1.0.0 ./forwarder-test.sh test nsm_upgrade > $log
+
+#cdn Meridio
+# make sure to use a branch with a new NSM
+./forwarder-test.sh build_images
+./forwarder-test.sh chversion_nsm v1.7.1
+xcluster_NSM_YAMLD=/etc/kubernetes/nsm-prev \
+./forwarder-test.sh test --trenches=red > $log
+```
 
 ## Meridio setup
 

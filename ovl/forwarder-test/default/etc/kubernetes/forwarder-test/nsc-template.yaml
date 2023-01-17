@@ -17,7 +17,7 @@ spec:
         - name: nsc
           securityContext:
             privileged: true
-          image: ghcr.io/networkservicemesh/cmd-nsc:v1.7.0
+          image: ghcr.io/networkservicemesh/cmd-nsc:v1.7.1
           imagePullPolicy: IfNotPresent
           env:
             - name: MY_NODE_NAME

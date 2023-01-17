@@ -499,6 +499,15 @@ cmd_chversion() {
 		sed -i -E "s,image:(.*(frontend|ipam|stateless-lb|nsp|proxy|tapa)):$__old,image:\\1:$new," $f
 	done
 }
+##   chversion_nsm <version>
+##     Change the NSM image version in manifests.
+cmd_chversion_nsm() {
+	test -n "$1" || die "Missing parameter"
+	local f new=$1
+	for f in $(find $dir/default -name '*.yaml'); do
+		sed -i -E "s,image:(.*cmd-ns.*):.*,image:\\1:$new," $f
+	done
+}
 ##   lreg_cache [version]
 ##     Cache Meridio images in the local registry. Use $MERIDIOVER by default
 cmd_lreg_cache() {
