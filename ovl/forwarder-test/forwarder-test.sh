@@ -52,12 +52,10 @@ cmd_env() {
 	if test "$xcluster_FIRST_WORKER" = "1"; then
 		export __mem1=4096
 		test -n "$__nvm" || __nvm=3
-		test "$__nvm" -gt 3 && __nvm=3
 		export __mem=3072
 	else
 		export __mem1=1024
 		test -n "$__nvm" || __nvm=4
-		test "$__nvm" -gt 4 && __nvm=4
 		export __mem=4096
 	fi
 	export __nvm
@@ -698,9 +696,11 @@ test_start_empty() {
 	# Avoid "Illegal instruction" error (vpp)
 	export __kvm_opt='-M q35,accel=kvm,kernel_irqchip=split -object rng-random,filename=/dev/urandom,id=rng0 -device virtio-rng-pci,rng=rng0,max-bytes=1024,period=80000 -cpu host'
 	# Required by the vpp-forwarder but not used without dpdk
-	export __append1="hugepages=128"
-	export __append2="hugepages=128"
-	export __append3="hugepages=128"
+	local vm
+	for vm in $(seq $xcluster_FIRST_WORKER $__nvm); do
+		eval export __append$vm="hugepages=128"
+	done
+	#env | grep __append >&2
 	test "$__nsm_local" = "yes" && export nsm_local=yes
 	xcluster_start network-topology spire k8s-pv nsm-ovs $@ forwarder-test
 
@@ -840,8 +840,7 @@ trench_test() {
 	fi
 	otc 2 "collect_target_addresses $1"
 	otc 2 "ping_lb_target $1"
-	#tcase "Sleep 10 sec..."
-	sleep 10
+	#tcase "Sleep 10 sec..."; sleep 10
 	mconnect_trench $1
 }
 

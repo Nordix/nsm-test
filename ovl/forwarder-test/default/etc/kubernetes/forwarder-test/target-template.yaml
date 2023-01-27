@@ -10,7 +10,7 @@ spec:
   selector:
     matchLabels:
       app: meridio-app
-  replicas: 4
+  replicas: $NTARGETS
   template:
     metadata:
       labels:

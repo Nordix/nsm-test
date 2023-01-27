@@ -100,6 +100,8 @@ cmd_tcase_check_trench() {
 	local nfqlb_ver=$($kubectl exec $pod -c load-balancer -- nfqlb version)
 	tlog "Nfqlb version [$nfqlb_ver]"
 	test_daemonset meridio-proxy 60
+	# Deploy and check targets
+	export NTARGETS=4
 	envsubst < $yamld$p/target-template.yaml | $kubectl apply -f - || tdie
 	test_deployment meridio-app 60
 }
