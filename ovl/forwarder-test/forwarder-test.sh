@@ -710,7 +710,7 @@ test_start_empty() {
 	otc 1 check_nodes
 }
 
-##   test start
+##   test [--targets-per-node=4] [--lbreplicas=2] start
 ##     Start the cluster with NSM. Default; xcluster_NSM_FORWARDER=vpp
 test_start() {
 	tcase "Start with NSM, forwarder=$xcluster_NSM_FORWARDER"
@@ -723,6 +723,8 @@ test_start() {
 	fi
 	test -n "$__targets_per_node" || __targets_per_node=4
 	export xcluster___targets_per_node=$__targets_per_node
+	test -n "$__lbreplicas" || __lbreplicas=2
+	export xcluster___lbreplicas=$__lbreplicas
 	if test "$xcluster_NSM_FORWARDER" = "ovs"; then
 		export xcluster_HOST_OVS=yes
 		test_start_empty ovs $@

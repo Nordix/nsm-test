@@ -76,6 +76,10 @@ cmd_tcase_deploy_trench() {
 	if test "$__exconnect" = "vlan"; then
 		envsubst < $yamld/nse-template.yaml | $kubectl apply -f - || tdie nse
 	fi
+	export LBREPLICAS=2
+	if test "$NAME" = "blue"; then
+		test -n "$__lbreplicas" && export LBREPLICAS=$__lbreplicas
+	fi
 	local f=$yamld/load-balancer-$__exconnect-template.yaml
 	test -r $f || f=$yamld/load-balancer-template.yaml
 	envsubst < $f | $kubectl apply -f - || tdie
@@ -335,6 +339,7 @@ cmd_tcase_e2e_vip_route() {
 cmd_tcase_mconnect_adr() {
 	pushv 60 5 12
 	tcase "Test mconnect to; $@"
+	mcopts="-timeout=20s"
 	tex "do_mconnect $@" || tdie
 	popv
 }
