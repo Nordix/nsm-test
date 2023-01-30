@@ -102,6 +102,11 @@ cmd_tcase_check_trench() {
 	test_daemonset meridio-proxy 60
 	# Deploy and check targets
 	export NTARGETS=4
+	if test "$NAME" = "blue"; then
+		test -n "$__targets_per_node" || __targets_per_node=4
+		local nworkers=$((__nvm + 1 - FIRST_WORKER))
+		export NTARGETS=$((nworkers * __targets_per_node))
+	fi
 	envsubst < $yamld$p/target-template.yaml | $kubectl apply -f - || tdie
 	test_deployment meridio-app 60
 }
@@ -327,33 +332,10 @@ cmd_tcase_e2e_vip_route() {
 		nexthop via 1000::1:169.254.101.2 || tdie "default ro ipv6"
 }
 
-cmd_tcase_mconnect() {
-	tcase "Test mconnect on trench [$1]"
-	test -n "$1" || die 'No trench'
-	local ns=$1
-	local vip4
-	case $ns in
-		red|black) vip4=10.0.0.1;;
-		blue) vip4=10.0.0.2;;
-		green) vip4=10.0.0.3;;
-		pink) vip4=10.0.0.4;;
-		*) die "Unknown trench";;
-	esac
-	# timeout retries interval
-	conntrack -F > /dev/null 2>&1
-	pushv 120 20 5
-	local begin=$(date +%s)
-	tex "do_mconnect $vip4:5001" || tdie "$vip4:5001"
-	tex "do_mconnect [$ipv6prefix:$vip4]:5001" || tdie "[$ipv6prefix:$vip4]:5001"
-	popv
-	local end=$(date +%s)
-	tlog "Mconnect on [$1] succeful after $((end - begin)) sec"
-}
-
 cmd_tcase_mconnect_adr() {
-	pushv 120 20 5
-	tcase "Test mconnect to; $1"
-	tex "do_mconnect $1" || tdie
+	pushv 60 5 12
+	tcase "Test mconnect to; $@"
+	tex "do_mconnect $@" || tdie
 	popv
 }
 

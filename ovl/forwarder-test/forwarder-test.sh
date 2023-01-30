@@ -53,10 +53,12 @@ cmd_env() {
 		export __mem1=4096
 		test -n "$__nvm" || __nvm=3
 		export __mem=3072
+		nworkers=$__nvm
 	else
 		export __mem1=1024
 		test -n "$__nvm" || __nvm=4
 		export __mem=4096
+		nworkers=$((__nvm - 1))
 	fi
 	export __nvm
 
@@ -719,14 +721,16 @@ test_start() {
 		test -n "$xcluster_TRENCH_TEMPLATE" || xcluster_TRENCH_TEMPLATE="$__bgp"
 		export xcluster_TRENCH_TEMPLATE
 	fi
+	test -n "$__targets_per_node" || __targets_per_node=4
+	export xcluster___targets_per_node=$__targets_per_node
 	if test "$xcluster_NSM_FORWARDER" = "ovs"; then
 		export xcluster_HOST_OVS=yes
 		test_start_empty ovs $@
 	else
 		test_start_empty $@
 	fi
-	otc 202 "conntrack 20000"
-	otcw "conntrack 20000"
+	otc 202 "conntrack 50000"
+	otcw "conntrack 30000"
 	test "$__exconnect" = "multus" && otc 1 multus_setup
 	otcprog=spire_test
 	otc 1 start_spire_registrar
@@ -854,10 +858,12 @@ mconnect_trench() {
 			otc 202 "mconnect_adr [1000::1:10.0.0.16]:$__port"
 		;;
 		blue)
-			otc 202 "mconnect_adr 10.0.0.2:$__port"
-			otc 202 "mconnect_adr [1000::1:10.0.0.2]:$__port"
-			otc 202 "mconnect_adr 10.0.0.32:$__port"
-			otc 202 "mconnect_adr [1000::1:10.0.0.32]:$__port"
+			local targets=$((nworkers * __targets_per_node))
+			local nconn=$((targets * 25))
+			otc 202 "mconnect_adr 10.0.0.2:$__port $nconn $targets 100"
+			otc 202 "mconnect_adr [1000::1:10.0.0.2]:$__port $nconn $targets 100"
+			otc 202 "mconnect_adr 10.0.0.32:$__port $nconn $targets 100"
+			otc 202 "mconnect_adr [1000::1:10.0.0.32]:$__port $nconn $targets 100"
 		;;
 		green)
 			otc 202 "mconnect_adr 10.0.0.3:$__port"

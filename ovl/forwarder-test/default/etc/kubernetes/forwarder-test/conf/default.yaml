@@ -14,7 +14,7 @@ data:
     items:
     - name: $STREAM1
       conduit: $CONDUIT1
-      max-targets: 20
+      max-targets: 200
   flows: |
     items:
     - name: flow1

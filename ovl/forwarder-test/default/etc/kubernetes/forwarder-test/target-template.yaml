@@ -98,7 +98,7 @@ spec:
             - name: MERIDIO_MAX_TOKEN_LIFETIME
               value: 10m
             - name: MERIDIO_NSP_ENTRY_TIMEOUT
-              value: 2m
+              value: 25s
           volumeMounts:
             - name: spire-agent-socket
               mountPath: /run/spire/sockets
