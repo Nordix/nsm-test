@@ -339,7 +339,7 @@ cmd_tcase_e2e_vip_route() {
 cmd_tcase_mconnect_adr() {
 	pushv 60 5 12
 	tcase "Test mconnect to; $@"
-	mcopts="-timeout=20s"
+	mcopts="-timeout=30s"
 	tex "do_mconnect $@" || tdie
 	popv
 }

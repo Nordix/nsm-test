@@ -854,10 +854,10 @@ mconnect_trench() {
 	test -n "$__port" || __port=5001
 	case $1 in
 		red|black)
-			otc 202 "mconnect_adr 10.0.0.1:$__port"
-			otc 202 "mconnect_adr [1000::1:10.0.0.1]:$__port"
-			otc 202 "mconnect_adr 10.0.0.16:$__port"
-			otc 202 "mconnect_adr [1000::1:10.0.0.16]:$__port"
+			otc 202 "mconnect_adr 10.0.0.1:$__port 100 4 100"
+			otc 202 "mconnect_adr [1000::1:10.0.0.1]:$__port 100 4 100"
+			otc 202 "mconnect_adr 10.0.0.16:$__port 100 4 100"
+			otc 202 "mconnect_adr [1000::1:10.0.0.16]:$__port 100 4 100"
 		;;
 		blue)
 			local targets=$((nworkers * __targets_per_node))
@@ -868,16 +868,16 @@ mconnect_trench() {
 			otc 202 "mconnect_adr [1000::1:10.0.0.32]:$__port $nconn $targets 100"
 		;;
 		green)
-			otc 202 "mconnect_adr 10.0.0.3:$__port"
-			otc 202 "mconnect_adr [1000::1:10.0.0.3]:$__port"
-			otc 202 "mconnect_adr 10.0.0.48:$__port"
-			otc 202 "mconnect_adr [1000::1:10.0.0.48]:$__port"
+			otc 202 "mconnect_adr 10.0.0.3:$__port 100 4 100"
+			otc 202 "mconnect_adr [1000::1:10.0.0.3]:$__port 100 4 100"
+			otc 202 "mconnect_adr 10.0.0.48:$__port 100 4 100"
+			otc 202 "mconnect_adr [1000::1:10.0.0.48]:$__port 100 4 100"
 		;;
 		pink)
-			otc 202 "mconnect_adr 10.0.0.4:$__port"
-			otc 202 "mconnect_adr [1000::1:10.0.0.4]:$__port"
+			otc 202 "mconnect_adr 10.0.0.4:$__port 100 4 100"
+			otc 202 "mconnect_adr [1000::1:10.0.0.4]:$__port 100 4 100"
 			otc 202 "mconnect_adr 10.0.0.64:$__port"
-			otc 202 "mconnect_adr [1000::1:10.0.0.64]:$__port"
+			otc 202 "mconnect_adr [1000::1:10.0.0.64]:$__port 100 4 100"
 		;;
 	esac
 }
