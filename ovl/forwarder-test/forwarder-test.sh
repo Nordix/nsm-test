@@ -704,7 +704,7 @@ test_start_empty() {
 	done
 	#env | grep __append >&2
 	test "$__nsm_local" = "yes" && export nsm_local=yes
-	xcluster_start network-topology spire k8s-pv nsm-ovs $@ forwarder-test
+	xcluster_start network-topology spire k8s-pv nsm-ovs $@ .
 
 	otc 1 check_namespaces
 	otc 1 check_nodes

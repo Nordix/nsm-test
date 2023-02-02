@@ -8,7 +8,7 @@ spec:
   selector:
     matchLabels:
       app: meridio-load-balancer
-  replicas: 2
+  replicas: $LBREPLICAS
   template:
     metadata:
       labels:
@@ -39,7 +39,7 @@ spec:
             - name: INIT_FUNCTION
               value: lb
       containers:
-        - name: load-balancer
+        - name: stateless-lb
           image: registry.nordix.org/cloud-native/meridio/stateless-lb:local
           imagePullPolicy: IfNotPresent
           startupProbe:

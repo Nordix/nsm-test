@@ -43,7 +43,7 @@ spec:
             - name: TUNNEL_IPV6
               value: "$TUNNEL_IPV6"
       containers:
-        - name: load-balancer
+        - name: stateless-lb
           image: registry.nordix.org/cloud-native/meridio/stateless-lb:local
           imagePullPolicy: IfNotPresent
           startupProbe:

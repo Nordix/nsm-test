@@ -36,6 +36,9 @@ dbg() {
 	test -n "$__verbose" && echo "$prg: $*" >&2
 }
 
+
+##
+## Test cases:
 cmd_tcase_check_namespaces() {
 	test_namespaces
 }
@@ -101,7 +104,7 @@ cmd_tcase_check_trench() {
 	test_statefulset meridio-nsp 30
 	test_deployment meridio-load-balancer 60
 	pod=$($kubectl get pods -l app=meridio-load-balancer -o name | head -1)
-	local nfqlb_ver=$($kubectl exec $pod -c load-balancer -- nfqlb version)
+	local nfqlb_ver=$($kubectl exec $pod -c stateless-lb -- nfqlb version)
 	tlog "Nfqlb version [$nfqlb_ver]"
 	test_daemonset meridio-proxy 60
 	# Deploy and check targets
@@ -279,9 +282,9 @@ cmd_tcase_collect_lb_addresses() {
 	local pod
 	for pod in $(kubectl get pod -n $NS -l app=meridio-load-balancer -o name); do
 		pushv 60
-		tex kubectl exec -n $NS $pod -c load-balancer -- ip addr show nsm-1 || die nsm-1
+		tex kubectl exec -n $NS $pod -c stateless-lb -- ip addr show nsm-1 || die nsm-1
 		popv
-		kubectl exec -n $NS $pod -c load-balancer -- ip addr show nsm-1 >> $out-raw
+		kubectl exec -n $NS $pod -c stateless-lb -- ip addr show nsm-1 >> $out-raw
 	done
 	cat $out-raw
 	grep -o -E 'inet 169[0-9\.]+' $out-raw | cut -d' ' -f2 >> $out-ip4
@@ -336,7 +339,9 @@ cmd_tcase_e2e_vip_route() {
 		nexthop via 1000::1:169.254.101.2 || tdie "default ro ipv6"
 }
 
+##   tcase_mconnect_adr address:port [nconn targets margin]
 cmd_tcase_mconnect_adr() {
+	conntrack -F > /dev/null 2>&1
 	pushv 60 5 12
 	tcase "Test mconnect to; $@"
 	mcopts="-timeout=30s"
@@ -364,7 +369,7 @@ cmd_tcase_check_targets() {
 }
 target_count() {
 	local pod=$($kubectl get pods -l app=meridio-load-balancer -o name | head -1)
-	$kubectl exec -c load-balancer $pod -- nfqlb show --shm=tshm-stream1 | grep Active: | tr -cd '(' | wc -c
+	$kubectl exec -c stateless-lb $pod -- nfqlb show --shm=tshm-stream1 | grep Active: | tr -cd '(' | wc -c
 }
 target_check() {
 	test $(target_count) -eq $1
@@ -438,6 +443,8 @@ cmd_tcase_conntrack() {
 	tcase "Set conntrack size to $1"
 	echo $1 > /proc/sys/net/nf_conntrack_max
 }
+##   tcase_collect_target_addresses trench
+##     Colled in /tmp/target-addr-$NS
 cmd_tcase_collect_target_addresses() {
 	# . /etc/kubernetes/forwarder-test/red.conf
 	tcase "Collect meridio-app addresses for trench [$1]"
@@ -496,7 +503,7 @@ cmd_tcase_show_shm() {
 	mkdir -p $tmp
 	out=$tmp/shm
 	for pod in $(kubectl get pod -n $NS -l app=meridio-load-balancer -o name); do
-		$kubectl exec $pod -c load-balancer -- nfqlb show --shm=tshm-stream1 > $out
+		$kubectl exec $pod -c statelsee-lb -- nfqlb show --shm=tshm-stream1 > $out
 		cat $out
 		n=$(cat $out | grep Active: | tr -dc ')' | wc -c)
 		tlog "$pod - targets $n"
@@ -540,7 +547,7 @@ cmd_tcase_negative_check_flow() {
 	return 0
 }
 check_xflow() {
-	$kubectl exec $1 -c load-balancer -- nfqlb flow-list-names | grep $2
+	$kubectl exec $1 -c stateless-lb -- nfqlb flow-list-names | grep $2
 }
 
 cmd_tcase_check_flow_vips() {
@@ -561,7 +568,7 @@ cmd_tcase_check_flow_vips() {
 check_flow_vips() {
 	local pod=$1
 	local flow=$2
-	$kubectl exec $pod -c load-balancer -- nft -j list ruleset > /tmp/ruleset || tdie
+	$kubectl exec $pod -c stateless-lb -- nft -j list ruleset > /tmp/ruleset || tdie
 	cat /tmp/ruleset |\
 		jq ".nftables[].set|select(. != null)|select(.name|match(\"7777-5001-TCP.*\"))" > /tmp/vipsets
 	local n
