@@ -36,6 +36,30 @@ dbg() {
 	test -n "$__verbose" && echo "$prg: $*" >&2
 }
 
+##   check_target_interfaces ns
+##     Check that interface "nsm-0" exists in all targets
+cmd_check_target_interfaces() {
+	test -n "$1" || die "No NS"
+	local NS=$1
+	mkdir -p $tmp
+	kubectl get pod -n $NS -l app=meridio-app -o name > $tmp/targets || \
+		die "Failed to get target pods"
+	local pod dev=nsm-0 ndev=0 napp=0 p
+	local logpod="kubectl -n $NS get pod -o custom-columns=NAME:metadata.name,NODE:spec.nodeName"
+	for pod in $(cat $tmp/targets); do
+		napp=$((napp + 1))
+		p=$(echo $pod | cut -f2 -d/)
+		$logpod $p | grep -v NAME >> $tmp/apps
+		if kubectl exec -n $NS $pod -c meridio-app -- \
+			ip -j addr show dev $dev > /dev/null 2>&1; then
+			ndev=$((ndev + 1))
+			$logpod $p | grep -v NAME >> $tmp/have-iface
+		fi
+		test $((napp % 10)) -eq 0 && echo "App $napp, with nsm-0 $ndev"
+	done
+	echo "Found interfaces: $ndev, expected $napp"
+	test $ndev -eq $napp || meld $tmp/apps $tmp/have-iface
+}
 
 ##
 ## Test cases:
@@ -451,7 +475,7 @@ cmd_tcase_collect_target_addresses() {
 	mkdir -p $tmp
 	configure_trench $1
 	mkdir -p /tmp/pod
-	pushv 120 20 6
+	pushv 180 20 9
 	echo kubectl get pod -n $NS -l app=meridio-app -o name
 	tex "kubectl get pod -n $NS -l app=meridio-app -o name > $tmp/targets" || \
 		tdie "Failed to get target pods"

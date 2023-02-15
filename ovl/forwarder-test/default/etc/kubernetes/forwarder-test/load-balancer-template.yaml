@@ -186,6 +186,8 @@ spec:
               value: $NAME
             - name: NFE_ATTRACTOR_NAME
               value: "attractor1"
+            - name: NFE_LOG_LEVEL
+              value: "DEBUG"
           volumeMounts:
             - name: spire-agent-socket
               mountPath: /run/spire/sockets

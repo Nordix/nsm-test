@@ -97,7 +97,7 @@ spec:
             - name: NSM_MAX_TOKEN_LIFETIME
               value: 10m
             - name: NSM_LOG_LEVEL
-              value: "TRACE"
+              value: "DEBUG"
           volumeMounts:
             - name: spire-agent-socket
               mountPath: /run/spire/sockets
