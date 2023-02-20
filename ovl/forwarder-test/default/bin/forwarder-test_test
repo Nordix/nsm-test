@@ -36,6 +36,22 @@ dbg() {
 	test -n "$__verbose" && echo "$prg: $*" >&2
 }
 
+##   proxy_ips ns
+##     Print the IPs of proxys
+cmd_proxy_ips() {
+	test -n "$1" || die "No NS"
+	mkdir -p $tmp
+	local pod node ips out=$tmp/out
+	for pod in $(kubectl -n $1 get pods -l app=meridio-proxy -o name); do
+		kubectl -n $1 exec $pod -c proxy -- \
+			ip -j addr show dev bridge0 | jq -r '.[].addr_info[]' > $out
+		#cat $out | jq
+		node=$(kubectl -n $1 get $pod -o json | jq -r .spec.nodeName)
+		ips=$(cat $out | jq -r 'select(.scope == "global").local' | tr '\n' ' ')
+		echo "$node: $ips"
+	done
+}
+
 ##   check_target_interfaces ns
 ##     Check that interface "nsm-0" exists in all targets
 cmd_check_target_interfaces() {

@@ -173,8 +173,8 @@ cmd_kind_start() {
 		$KIND_CREATE_ARGS || die
 	if test -x /usr/bin/busybox; then
 		log "Installing busybox on control-plane and worker..."
-		docker cp /usr/bin/busybox $KIND_CLUSTER_NAME-control-plane:/bin
-		docker cp /usr/bin/busybox $KIND_CLUSTER_NAME-worker:/bin
+		docker cp -q /usr/bin/busybox $KIND_CLUSTER_NAME-control-plane:/bin
+		docker cp -q /usr/bin/busybox $KIND_CLUSTER_NAME-worker:/bin
 	fi
 
 	# Install a kubeconfig on workers
@@ -704,6 +704,7 @@ test_start_empty() {
 	done
 	#env | grep __append >&2
 	test "$__nsm_local" = "yes" && export nsm_local=yes
+	cd $dir
 	xcluster_start network-topology spire k8s-pv nsm-ovs $@ .
 
 	otc 1 check_namespaces
