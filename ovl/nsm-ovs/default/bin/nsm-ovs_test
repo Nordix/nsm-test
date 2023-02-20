@@ -67,6 +67,10 @@ cmd_tcase_start_nsm() {
 		kubectl create namespace $NSM_NAMESPACE
 		kubectl="kubectl -n $NSM_NAMESPACE"
 	fi
+	if test "$NSM_REGISTRY" = "k8s" -a $__nvm -gt 3; then
+		# The NSM registry must be scaled
+		sed -i -e "s,replicas: 1,replicas: $((__nvm / 3))," $yamld/registry-k8s.yaml
+	fi
 	$kubectl apply -f $yamld/registry-$NSM_REGISTRY.yaml || tdie
 	$kubectl apply -f $yamld/nsmgr.yaml || tdie
 	#kubectl apply -f $yamld/nsm-base.yaml || tdie

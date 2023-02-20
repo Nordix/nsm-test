@@ -74,6 +74,7 @@ metadata:
     app: registry
   name: registry-k8s
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: registry
