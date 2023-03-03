@@ -36,6 +36,9 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         image: ghcr.io/networkservicemesh/cmd-forwarder-vpp:v1.7.1
+        resources:
+          limits:
+            memory: "500Mi"
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
