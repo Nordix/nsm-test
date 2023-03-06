@@ -40,19 +40,27 @@ spec:
           limits:
             memory: "500Mi"
         imagePullPolicy: IfNotPresent
+        name: forwarder-vpp
         livenessProbe:
           exec:
             command:
             - /bin/grpc-health-probe
             - -spiffe
             - -addr=unix:///listen.on.sock
-        name: forwarder-vpp
+          initialDelaySeconds: 5
+          failureThreshold: 25
+          successThreshold: 1
+          periodSeconds: 2
         readinessProbe:
           exec:
             command:
             - /bin/grpc-health-probe
             - -spiffe
             - -addr=unix:///listen.on.sock
+          initialDelaySeconds: 5
+          failureThreshold: 120
+          successThreshold: 1
+          periodSeconds: 20
         securityContext:
           privileged: true
         volumeMounts:
