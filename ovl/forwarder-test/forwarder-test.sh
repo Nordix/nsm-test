@@ -50,9 +50,9 @@ cmd_env() {
 	test -n "$xcluster_NSM_FORWARDER" || export xcluster_NSM_FORWARDER=vpp
 	test -n "$xcluster_FIRST_WORKER" || export xcluster_FIRST_WORKER=1
 	if test "$xcluster_FIRST_WORKER" = "1"; then
-		export __mem1=4096
 		test -n "$__nvm" || __nvm=3
-		export __mem=3072
+		test -z "$__mem" -o $__mem -lt 2048 && export __mem=3072
+		export __mem1=$((__mem + 1024))
 		nworkers=$__nvm
 	else
 		export __mem1=1024
@@ -677,9 +677,9 @@ cmd_test() {
 	rm -f $XCLUSTER_TMP/cdrom.iso
 
 	if test -n "$1"; then
-		for t in $@; do
-			test_$t
-		done
+		local t=$1
+		shift
+		test_$t $@
 	else
 		test_trench
 	fi
@@ -786,7 +786,7 @@ test_start_e2e() {
 test_trench() {
 	test -n "$__trenches" || __trenches=red,blue,green
 	tlog "=== Test trenches [$__trenches]"
-	test_start
+	test_start $@
 	local trench
 	test -n "$__bgp" && otc 202 "bird --conf=$__bird_conf"
 	for trench in $(echo $__trenches | tr , ' '); do
