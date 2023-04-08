@@ -37,6 +37,12 @@ findar() {
 	test -r $ar || ar=$HOME/Downloads/$1
 	test -r $ar
 }
+findf() {
+	local f=$ARCHIVE/$1
+	test -r $f || f=$HOME/Downloads/$1
+	test -r $f || die "Can't find [$1]"
+	echo $f
+}
 
 ##   env
 ##     Print environment.
@@ -571,8 +577,7 @@ cmd_build_base_image() {
 	cmd_env
 	local base=$(grep base_image= $dir/images/Dockerfile.default | cut -d= -f2)
 	log "Building base image [$base]"
-	local health_probe=$ARCHIVE/grpc_health_probe-linux-amd64
-	test -r $health_probe || die "Not readable [$health_probe]"
+	local health_probe=$(findf grpc_health_probe-linux-amd64)
 	local dockerfile=$dir/images/Dockerfile.base
 	mkdir -p $tmp/bin
 	cp $health_probe $tmp/bin/grpc_health_probe
