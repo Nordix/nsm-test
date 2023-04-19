@@ -665,7 +665,41 @@ cmd_build_init_image() {
 	local img=registry.nordix.org/cloud-native/meridio/init
 	$images lreg_upload --strip-host $img:$__version
 }
+##   reset [--down-time=] [--trench=red] <vm> > $log
+##     Reset a VM
+cmd_reset() {
+	cmd_env
+	test -n "$1" || die "No vm"
+	test $1 -gt 1 || die "Invalid vm (may not be <2)"
+	test -n "$__trench" || __trench=red
+	local nodeid=$1
+	local mport=$((XCLUSTER_MONITOR_BASE+nodeid))
+	echo "Mport=$mport"
+	if test -n "$__down_time"; then
+		echo stop | nc localhost -q1 $mport #> /dev/null 2>&1
+		log "VM stopped. Wait $__down_time sec..."; sleep $__down_time
+		echo system_reset | nc -q1 localhost $mport #> /dev/null 2>&1
+		echo cont | nc localhost -q1 $mport #> /dev/null 2>&1
+	else
+		echo system_reset | nc -q1 localhost $mport #> /dev/null 2>&1
+	fi
+	tex rsh $nodeid hostname || die "Not re-starting"
+	otc $nodeid "conntrack 30000"
+	otcprog=nsm-ovs_test
+	otc $nodeid "ifup eth2 eth3"
+	unset otcprog
+	otc 1 check_nodes
+	tcase "Sleep 4s ..."; sleep 4
+	otc 1 "check_trench $__trench"
+	
+	otc 2 "collect_target_addresses $__trench"
+	otc 2 "ping_lb_target --timout=240 $__trench"
 
+	nworkers=$__nvm
+	otc 202 "collect_lb_addresses --prefix=$__prefix $__trench"
+	otc 202 "trench_vip_route $__trench"
+	mconnect_trench $__trench
+}
 ##
 ##   test --list
 ##   test [--xterm] [--no-stop] [--local] [--nsm-local] [test...] > logfile
@@ -738,16 +772,12 @@ test_start() {
 		test_start_empty $@
 	fi
 	otc 202 "conntrack 50000"
-	otcw "conntrack 30000"
+	otcwp "conntrack 30000"
 	test "$__exconnect" = "multus" && otc 1 multus_setup
 	otcprog=spire_test
 	otc 1 start_spire_registrar
 	otcprog=nsm-ovs_test
-	local vm
-	for vm in $(seq $xcluster_FIRST_WORKER $__nvm); do
-		otc $vm "ifup eth2"
-		otc $vm "ifup eth3"
-	done
+	otcwp $vm "ifup eth2 eth3"
 	otc 1 start_nsm
 	otc 1 start_forwarder
 	test "$xcluster_NSM_FORWARDER" = "vpp" && otc 1 vpp_version
@@ -760,7 +790,7 @@ test_start_dhcp() {
 	__exconnect=multus
 	unset __bgp
 	test_start dhcp
-	otcw cni_dhcp_start
+	otcwp cni_dhcp_start
 }
 
 ##   test start_e2e
@@ -816,16 +846,16 @@ cmd_add_trench() {
 		multus)
 			case $1 in
 				red|pink)
-					otcw "local_vlan --bridge=mbr1 --tag=100 eth2";;
+					otcwp "local_vlan --bridge=mbr1 --tag=100 eth2";;
 				blue)
-					otcw "local_vlan --tag=200 eth2";;
+					otcwp "local_vlan --tag=200 eth2";;
 				green)
-					otcw "local_vlan --tag=100 eth3";;
+					otcwp "local_vlan --tag=100 eth3";;
 				black)
 					otc 202 "setup_vlan64 --tag=100 --prefix=fd00:100: eth3"
 					otc 202 "radvd_start --prefix=fd00:100: eth3.100"
 					otc 202 "dhcpd eth3.100"
-					otcw "local_vlan --bridge=mbr1 --tag=100 eth2"
+					otcwp "local_vlan --bridge=mbr1 --tag=100 eth2"
 					otc 1 "deploy_trench --exconnect=multus $1"
 					return;;
 				*) tdie "Invalid trench [$1]";;

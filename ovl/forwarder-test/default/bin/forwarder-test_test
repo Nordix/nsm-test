@@ -319,6 +319,7 @@ cmd_tcase_collect_lb_addresses() {
 	tcase "Collect load-balancer addresses for trench [$1]"
 	configure_trench $1
 	local out=/tmp/meridio-load-balancer-$NAME
+	rm -f $out-*
 	local pod
 	for pod in $(kubectl get pod -n $NS -l app=meridio-load-balancer -o name); do
 		pushv 60
@@ -351,10 +352,10 @@ cmd_tcase_trench_vip_route() {
 	for vip in $VIP1 $VIP2 $VIP3 $VIP4; do
 		if echo $vip | grep -q :; then
 			echo "ip -6 route add $vip $hops6"
-			ip -6 route add $vip $hops6 || tdie "ip route add $vip $hops6"
+			ip -6 route replace $vip $hops6 || tdie "ip route add $vip $hops6"
 		else
 			echo "ip route add $vip $hops4"
-			ip route add $vip $hops4 || tdie "ip route add $vip $hops4"
+			ip route replace $vip $hops4 || tdie "ip route add $vip $hops4"
 		fi
 	done
 }
@@ -506,12 +507,15 @@ cmd_tcase_collect_target_addresses() {
 	test -r /tmp/target-addr-$NS || tdie "No address file"
 	cat /tmp/target-addr-$NS
 }
+##   tcase_ping_lb_target [--timout=60] <trench>
+##     Ping all targets from all LB's in a trench. --timout it NOT misspelled!
 cmd_tcase_ping_lb_target() {
 	tcase "Ping all targets from all LB's in trench [$1]"
+	test -n "$__timout" || __timout=60
 	configure_trench $1
 	test -r /tmp/target-addr-$NS || tdie "Target addresses not collected"
 	local pod adr
-	pushv 60 10 6
+	pushv $__timout
 	for pod in $(kubectl get pod -n $NS -l app=meridio-load-balancer -o name); do
 		for adr in $(cat /tmp/target-addr-$NS); do
 			echo $adr | grep -Fq 10.0.0. && continue
