@@ -219,7 +219,7 @@ test_start_empty() {
 	otc 1 check_namespaces
 	otc 1 check_nodes
 	otcr vip_routes
-	otcw ifup
+	otcwp "ifup eth2"
 }
 
 ##   test all

@@ -54,14 +54,14 @@ tests the same NSC can be used with `forwarder-vpp` and `forwarder-ovs`.
 
 ## Usage
 
-Prepare [ovl/spire](https://github.com/Nordix/xcluster/tree/master/ovl/spire).
-
-Load the local image registry;
+Prepare:
 ```bash
 images lreg_preload k8s-pv
 images lreg_preload spire
 images lreg_preload nsm-ovs
 #images lreg_preload k8s-cni-calico
+cdo ovs
+./ovs.sh build
 ```
 
 Basic test;

@@ -47,14 +47,15 @@ cmd_tcase_vip_routes() {
 	tcase "Set VIP routes (ECMP)"
 	vip_route
 }
-
+##   tcase_ifup [interfaces...]
 cmd_tcase_ifup() {
-	local iface=eth2
-	test -n "$1" && iface=$1
-	tcase "Interface up [$iface]"
-	echo 0 > /proc/sys/net/ipv6/conf/$iface/accept_dad
-	ip link set up dev $iface
-	#ethtool -K $iface tx off
+	tcase "Interface up [$@]"
+	local iface
+	for iface in $@; do
+		echo 0 > /proc/sys/net/ipv6/conf/$iface/accept_dad
+		ip link set up dev $iface
+		#ethtool -K $iface tx off
+	done
 }
 
 cmd_tcase_start_nsm() {
