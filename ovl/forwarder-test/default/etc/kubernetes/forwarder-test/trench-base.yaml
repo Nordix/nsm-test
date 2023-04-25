@@ -26,8 +26,8 @@ spec:
       labels:
         app: meridio-ipam
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: vm-004
+#      nodeSelector:
+#        kubernetes.io/hostname: vm-003
       containers:
         - name: ipam
           image: registry.nordix.org/cloud-native/meridio/ipam:local

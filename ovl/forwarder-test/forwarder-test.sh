@@ -876,7 +876,7 @@ cmd_add_trench() {
 }
 
 trench_test() {
-	kubectl label nodes vm-003 vm-004 meridio.nordix.org/blue=lb
+	kubectl label nodes vm-002 vm-003 meridio.nordix.org/$1=lb
 	cmd_add_trench $1
 	if test -z "$__bgp"; then
 		otc 202 "collect_lb_addresses --prefix=$__prefix $1"

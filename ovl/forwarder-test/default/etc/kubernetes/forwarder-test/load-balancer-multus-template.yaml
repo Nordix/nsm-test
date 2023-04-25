@@ -21,7 +21,7 @@ spec:
         ]'
     spec:
       nodeSelector:
-        meridio.nordix.org/blue: lb 
+        meridio.nordix.org/$NAME: lb 
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
