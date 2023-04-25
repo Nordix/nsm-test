@@ -20,6 +20,8 @@ spec:
            "interface": "nsm-1" }
         ]'
     spec:
+      nodeSelector:
+        meridio.nordix.org/blue: lb 
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

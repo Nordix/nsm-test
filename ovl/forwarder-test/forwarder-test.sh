@@ -688,9 +688,10 @@ cmd_reset() {
 	otcprog=nsm-ovs_test
 	otc $nodeid "ifup eth2 eth3"
 	unset otcprog
+	test "$__exconnect" = "multus" && otc $nodeid "local_vlan --tag=200 eth2"
 	otc 1 check_nodes
 	tcase "Sleep 4s ..."; sleep 4
-	otc 1 "check_trench $__trench"
+	otc 1 "check_trench --exconnect=$__exconnect $__trench"
 	
 	otc 2 "collect_target_addresses $__trench"
 	otc 2 "ping_lb_target --timout=240 $__trench"
@@ -875,6 +876,7 @@ cmd_add_trench() {
 }
 
 trench_test() {
+	kubectl label nodes vm-003 vm-004 meridio.nordix.org/blue=lb
 	cmd_add_trench $1
 	if test -z "$__bgp"; then
 		otc 202 "collect_lb_addresses --prefix=$__prefix $1"
